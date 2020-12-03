@@ -11,7 +11,8 @@ from .rpc_channel import RpcChannel
 
 class WebSocketRpcClient:
 
-    def __init__(self, uri, channel=None):
+    def __init__(self, uri, methods):
+        self.methods = methods
         # Websocket connection
         self.conn = None
         # Websocket object
@@ -24,7 +25,7 @@ class WebSocketRpcClient:
         self.responses = {}
            # Read worker
         self._read_task = None
-        self.channel = channel
+        self.channel = None
 
     async def __aenter__(self):
         # Start connection
@@ -33,7 +34,7 @@ class WebSocketRpcClient:
         self.ws = await self.conn.__aenter__()
         # Start reading
         self._read_task = asyncio.create_task(self.reader())
-        self.channel = self.channel if self.channel is not None else RpcChannel(self, self.ws)
+        self.channel = RpcChannel(self, self.ws)
         return self
 
     async def __aexit__(self, *args, **kwargs):

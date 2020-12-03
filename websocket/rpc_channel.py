@@ -35,17 +35,13 @@ class RpcPromise:
 
 class RpcChannel:
 
-    def __init__(self, methods):
-        self.methods = methods(self)
+    def __init__(self, methods, socket):
+        self.methods = methods
         # Pending requests - id-mapped to async-event
         self.requests: Dict[str, asyncio.Event] = {}
         # Received responses
         self.responses = {}
-        self.socket = None
-
-    def __enter__(self, socket):
         self.socket = socket
-        return self
 
     async def send(self, data):
         await self.socket.send(data)
