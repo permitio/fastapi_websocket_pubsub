@@ -25,7 +25,7 @@ class WebsocketRPCEndpoint:
             channel = RpcChannel(self.methods, websocket)
             try:
                 while True:
-                    data = await websocket.receive()
+                    data = await websocket.receive_text()
                     await channel.on_message(data)
             except WebSocketDisconnect:
                 self.manager.disconnect(websocket)
