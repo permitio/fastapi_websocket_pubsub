@@ -8,7 +8,7 @@ from typing import Dict
 import uuid
 from pydantic import ValidationError
 import asyncio
-import logging
+from lib.logger import logger
 
 
 class RpcPromise:
@@ -47,7 +47,7 @@ class RpcChannel:
         await self.socket.send(data)
 
     async def receive(self, data):
-        return await self.socket.receive()
+        return await self.socket.recv()
 
     async def on_message(self, data):
         try:
@@ -57,17 +57,20 @@ class RpcChannel:
             if message.response is not None:
                 await self.on_response(message.response)
         except ValidationError as e:
-            logging.error(f"Failed to parse message: {data}", e)
+            logger.error(f"Failed to parse message", message=data, error=e)
 
-    async def on_request(self, message:RpcRequest):
+    async def on_request(self, message: RpcRequest):
+        logger.info("Handling RPC request", request=message)
         method = getattr(self.methods, message.method)
         if callable(method):
             result = await method(**message.arguments)
         if result is not NoResponse:
-            response = RpcMessage(response=RpcResponse(call_id=message.call_id, result=result))
+            response = RpcMessage(response=RpcResponse(
+                call_id=message.call_id, result=result))
             await self.send(response.json())
 
-    async def on_response(self, response:RpcResponse):
+    async def on_response(self, response: RpcResponse):
+        logger.info("Handling RPC response", response=response)
         if response.call_id is not None and response.call_id in self.requests:
             self.responses[response.call_id] = response
             promise = self.requests[response.call_id]
@@ -88,9 +91,11 @@ class RpcChannel:
         Call a method and return the event and the sent message (including the chosen call_id)
         use self.wait_for_response on the event and call_id to get the return value of the call
         """
-        msg = RpcRequest(method=name, arguments=args, call_id=gen_uid())
+        msg = RpcMessage(request=RpcRequest(
+            method=name, arguments=args, call_id=gen_uid()))
+        logger.info("Calling RPC method", message=msg)
         await self.send(msg.json())
-        promise = self.requests[msg.call_id] = RpcPromise(msg)
+        promise = self.requests[msg.request.call_id] = RpcPromise(msg.request)
         return promise
 
     async def call(self, name, args):
@@ -98,4 +103,4 @@ class RpcChannel:
         Call a method and wait for a response to be received
         """
         promise = await self.async_call(name, args)
-        return await self.wait_for_response(promise)            
+        return await self.wait_for_response(promise)

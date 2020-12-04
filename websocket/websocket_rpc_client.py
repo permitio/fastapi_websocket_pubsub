@@ -49,7 +49,7 @@ class WebSocketRpcClient:
         """
         while True:
             raw_message = await self.ws.recv()
-            self.channel.on_message(raw_message)
+            await self.channel.on_message(raw_message)
 
 
     async def call(self, name, args):

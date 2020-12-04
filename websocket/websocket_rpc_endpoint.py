@@ -11,6 +11,20 @@ from .rpc_methods import RpcMethods
 from .rpc_channel import RpcChannel
 
 
+class WebSocketSimplifier:
+
+    def __init__(self, websocket: WebSocket):
+        self.websocket = websocket
+
+    @property
+    def send(self):
+        return self.websocket.send_text
+        
+    @property
+    def recv(self):
+        return self.websocket.receive_text
+
+
 class WebsocketRPCEndpoint:
 
     def __init__(self, methods, manager = None):
@@ -22,7 +36,7 @@ class WebsocketRPCEndpoint:
         @router.websocket(prefix + "{client_id}")
         async def websocket_endpoint(websocket: WebSocket, client_id: str):
             await self.manager.connect(websocket)
-            channel = RpcChannel(self.methods, websocket)
+            channel = RpcChannel(self.methods, WebSocketSimplifier(websocket))
             try:
                 while True:
                     data = await websocket.receive_text()
