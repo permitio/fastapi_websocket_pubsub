@@ -9,6 +9,7 @@ import uuid
 from pydantic import ValidationError
 import asyncio
 from lib.logger import logger
+from inspect import signature, _empty
 
 
 class RpcPromise:
@@ -43,6 +44,10 @@ class RpcChannel:
         self.responses = {}
         self.socket = socket
 
+    def get_return_type(self, method):
+        method_signature = signature(method)
+        return method_signature.return_annotation if method_signature.return_annotation is not _empty else str
+
     async def send(self, data):
         await self.socket.send(data)
 
@@ -65,8 +70,13 @@ class RpcChannel:
         if callable(method):
             result = await method(**message.arguments)
         if result is not NoResponse:
-            response = RpcMessage(response=RpcResponse(
-                call_id=message.call_id, result=result))
+            # get indicated type
+            result_type = self.get_return_type(method)
+            # if no type given - try to convert to string
+            if result_type is str and type(result) is not str:
+                result = str(result)
+            response = RpcMessage(response=RpcResponse[result_type](
+                call_id=message.call_id, result=result, result_type=result_type.__name__))
             await self.send(response.json())
 
     async def on_response(self, response: RpcResponse):
@@ -86,7 +96,7 @@ class RpcChannel:
         del self.responses[promise.call_id]
         return response
 
-    async def async_call(self, name, args):
+    async def async_call(self, name, args={}):
         """
         Call a method and return the event and the sent message (including the chosen call_id)
         use self.wait_for_response on the event and call_id to get the return value of the call
@@ -98,7 +108,7 @@ class RpcChannel:
         promise = self.requests[msg.request.call_id] = RpcPromise(msg.request)
         return promise
 
-    async def call(self, name, args):
+    async def call(self, name, args={}):
         """
         Call a method and wait for a response to be received
         """

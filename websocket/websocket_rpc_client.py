@@ -52,7 +52,7 @@ class WebSocketRpcClient:
             await self.channel.on_message(raw_message)
 
 
-    async def call(self, name, args):
+    async def call(self, name, args={}):
         """
         Call a method and wait for a response to be received
         """
