@@ -38,6 +38,7 @@ class RpcChannel:
 
     def __init__(self, methods, socket):
         self.methods = methods
+        self.methods.set_channel(self)
         # Pending requests - id-mapped to async-event
         self.requests: Dict[str, asyncio.Event] = {}
         # Received responses

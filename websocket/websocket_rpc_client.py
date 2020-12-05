@@ -8,7 +8,6 @@ import asyncio
 import logging
 from .rpc_channel import RpcChannel
 
-
 class WebSocketRpcClient:
 
     def __init__(self, uri, methods):
@@ -34,7 +33,7 @@ class WebSocketRpcClient:
         self.ws = await self.conn.__aenter__()
         # Start reading
         self._read_task = asyncio.create_task(self.reader())
-        self.channel = RpcChannel(self, self.ws)
+        self.channel = RpcChannel(self.methods, self.ws)
         return self
 
     async def __aexit__(self, *args, **kwargs):
