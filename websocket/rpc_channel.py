@@ -4,13 +4,15 @@ from typing import Dict
 from .schemas import RpcRequest, RpcResponse, RpcMessage
 from .rpc_methods import NoResponse
 from lib.utils import gen_uid
-from typing import Dict
+from typing import Dict, Any
 import uuid
 from pydantic import ValidationError
 import asyncio
 from lib.logger import logger
-from inspect import signature, _empty
+from inspect import signature, _empty, getmembers, ismethod
 
+class UnknownMethodException(Exception):
+    pass
 
 class RpcPromise:
     """
@@ -34,9 +36,29 @@ class RpcPromise:
         return self._event.wait()
 
 
+class RpcCaller:
+
+    class RpcProxy:
+        def __init__(self, channel, method_name) -> None:
+            self.method_name = method_name
+            self.channel = channel 
+            
+        def __call__(self, **kwds: Any) -> Any:
+            return self.channel.call(self.method_name, args=kwds)
+           
+    def __init__(self, channel, methods=None) -> None:
+        self._channel = channel
+        self._method_names = [method[0] for method in  getmembers(methods, lambda i: ismethod(i))] if methods is not None else None
+    
+    def __getattribute__(self, name: str):
+        if not name.startswith("_") and (self._method_names is None or name in self._method_names):
+            return RpcCaller.RpcProxy(self._channel, name)
+        else: 
+            return super().__getattribute__(name)
+
 class RpcChannel:
 
-    def __init__(self, methods, socket):
+    def __init__(self, methods, socket, channel_id=None):
         self.methods = methods
         self.methods.set_channel(self)
         # Pending requests - id-mapped to async-event
@@ -44,6 +66,13 @@ class RpcChannel:
         # Received responses
         self.responses = {}
         self.socket = socket
+        #Unique channel id
+        self.id = channel_id if channel_id is not None else gen_uid() 
+        #
+        # convineice caller
+        # TODO - pass remote methods object to support validation before call
+        self.other = RpcCaller(self)
+
 
     def get_return_type(self, method):
         method_signature = signature(method)
@@ -65,20 +94,23 @@ class RpcChannel:
         except ValidationError as e:
             logger.error(f"Failed to parse message", message=data, error=e)
 
+    async def on_disconnect(self):
+        pass
+
     async def on_request(self, message: RpcRequest):
         logger.info("Handling RPC request", request=message)
         method = getattr(self.methods, message.method)
         if callable(method):
             result = await method(**message.arguments)
-        if result is not NoResponse:
-            # get indicated type
-            result_type = self.get_return_type(method)
-            # if no type given - try to convert to string
-            if result_type is str and type(result) is not str:
-                result = str(result)
-            response = RpcMessage(response=RpcResponse[result_type](
-                call_id=message.call_id, result=result, result_type=result_type.__name__))
-            await self.send(response.json())
+            if result is not NoResponse:
+                # get indicated type
+                result_type = self.get_return_type(method)
+                # if no type given - try to convert to string
+                if result_type is str and type(result) is not str:
+                    result = str(result)
+                response = RpcMessage(response=RpcResponse[result_type](
+                    call_id=message.call_id, result=result, result_type=result_type.__name__))
+                await self.send(response.json())
 
     async def on_response(self, response: RpcResponse):
         logger.info("Handling RPC response", response=response)
@@ -115,3 +147,4 @@ class RpcChannel:
         """
         promise = await self.async_call(name, args)
         return await self.wait_for_response(promise)
+

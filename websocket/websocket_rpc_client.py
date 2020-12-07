@@ -50,6 +50,12 @@ class WebSocketRpcClient:
             raw_message = await self.ws.recv()
             await self.channel.on_message(raw_message)
 
+    async def wait_on_reader(self):
+        """
+        Join on the internal reader task
+        """
+        await self._read_task
+
 
     async def call(self, name, args={}):
         """

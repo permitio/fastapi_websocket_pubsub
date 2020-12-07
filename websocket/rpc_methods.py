@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 import typing
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
@@ -15,14 +16,17 @@ class NoResponse:
 
 
 class RpcMethodsBase:
+    """
+    The basic interface RPC channels excpets method groups to implements.
+    """
 
     def __init__(self):
-        """
-        endpoint (WebsocketRPCEndpoint): the endpoint these methods are loaded into
-        """
         self.channel = None
 
     def set_channel(self, channel):
+        """
+        Allows the channel to share access to its functions to the methods once nested under it
+        """
         self.channel = channel
 
 
@@ -32,7 +36,10 @@ class ProcessDetails(BaseModel):
     workingdir: str = os.getcwd()
 
 
-class RpcMethods(RpcMethodsBase):
+class RpcUtilityMethods(RpcMethodsBase):
+    """
+    A simple set of RPC functions useful for management and testing
+    """
 
     def __init__(self):
         """

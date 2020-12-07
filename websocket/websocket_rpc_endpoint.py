@@ -7,7 +7,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from typing import Dict
 from .connection_manager import ConnectionManager
 from .schemas import RpcRequest, RpcResponse
-from .rpc_methods import RpcMethods
+from .rpc_methods import RpcUtilityMethods
 from .rpc_channel import RpcChannel
 
 
@@ -43,3 +43,4 @@ class WebsocketRPCEndpoint:
                     await channel.on_message(data)
             except WebSocketDisconnect:
                 self.manager.disconnect(websocket)
+                await channel.on_disconnect()
