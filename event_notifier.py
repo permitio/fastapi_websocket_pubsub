@@ -14,7 +14,7 @@ class Subscription(BaseModel):
     id:  SubscriptionID
     subscriber_id: SubscriberID
     topic: Topic
-    callback: Callable = None
+    callback: Callable= None
 
 
 class EventNotifier:
