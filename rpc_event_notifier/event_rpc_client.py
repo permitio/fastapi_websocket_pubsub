@@ -4,17 +4,38 @@ import asyncio
 
 
 class EventRpcClient:
+    """
+    RPC pub/sub client
+
+    Simple usage example (init class with subscription topics):
+        client = EventRpcClient(["guns", "germs", "steel"])
+        client.start_client("ws://localhost:8000/ws/test-client1")
+
+    Advanced usage:
+        override on_connect() to add more subscription / registartion logic
+    """
 
     def __init__(self, topics=None, methods=None) -> None:
+        """
+        Args:
+            topics client should subscribe to. 
+            methods ([type], optional): [description]. Defaults to None.
+        """
         self.topics = topics
         self._methods = methods if methods is not None else RpcEventClientMethods()
 
     async def _client_loop(self, uri, wait_on_reader=True):
         async with  WebSocketRpcClient(uri, self._methods) as client:
-            if self.topics is not None:
-                await client.channel.other.subscribe(topics=self.topics)
+            await self.on_connect(client)
             if wait_on_reader:
                 await client.wait_on_reader()
+
+    async def on_connect(self, client):
+        """
+        Method called upon first connection to server
+        """
+        if self.topics is not None:
+            await client.channel.other.subscribe(topics=self.topics)
 
     def start_client(self, server_uri):
         """
