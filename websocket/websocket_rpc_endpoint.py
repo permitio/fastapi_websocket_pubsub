@@ -37,8 +37,8 @@ class WebsocketRPCEndpoint:
         self.methods = methods
 
     def register_routes(self, router, prefix="/ws/"):
-        """[summary]
-
+        """
+        Register websocket routes on the given router
         Args:
             router: FastAPI router to load route onto
             prefix (str, optional): the start of the route path - final route will add "{client_id}". Defaults to "/ws/".
