@@ -30,5 +30,5 @@ class RpcEventClientMethods(RpcMethodsBase):
 
     async def notify(self, subscription=None, data=None):
         logger.info("Received notification of event", subscription=subscription, data=data)
-        pass
+        
         
