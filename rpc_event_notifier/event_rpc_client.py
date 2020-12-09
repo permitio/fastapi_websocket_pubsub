@@ -5,11 +5,12 @@ import asyncio
 
 class EventRpcClient:
 
-    def __init__(self, topics=None) -> None:
+    def __init__(self, topics=None, methods=None) -> None:
         self.topics = topics
+        self._methods = methods if methods is not None else RpcEventClientMethods()
 
     async def _client_loop(self, uri, wait_on_reader=True):
-        async with  WebSocketRpcClient(uri, RpcEventClientMethods()) as client:
+        async with  WebSocketRpcClient(uri, self._methods) as client:
             if self.topics is not None:
                 await client.channel.other.subscribe(topics=self.topics)
             if wait_on_reader:
