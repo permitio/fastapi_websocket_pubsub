@@ -2,10 +2,9 @@ import asyncio
 
 from typing import Dict
 from .schemas import RpcRequest, RpcResponse, RpcMessage
-from .rpc_methods import NoResponse
+from .rpc_methods import NoResponse, RpcMethodsBase
 from lib.utils import gen_uid
 from typing import Dict, Any
-import uuid
 from pydantic import ValidationError
 import asyncio
 from lib.logger import logger
@@ -36,15 +35,21 @@ class RpcPromise:
         return self._event.wait()
 
 
+class RpcProxy:
+    """
+    Helper class
+    provide a __call__ interface for an RPC method over a given channel
+    """
+    def __init__(self, channel, method_name) -> None:
+        self.method_name = method_name
+        self.channel = channel 
+        
+    def __call__(self, **kwds: Any) -> Any:
+        return self.channel.call(self.method_name, args=kwds)
 class RpcCaller:
-
-    class RpcProxy:
-        def __init__(self, channel, method_name) -> None:
-            self.method_name = method_name
-            self.channel = channel 
-            
-        def __call__(self, **kwds: Any) -> Any:
-            return self.channel.call(self.method_name, args=kwds)
+    """
+    Helper class provide an object (aka other) with callable methods for each remote method on the otherside
+    """
            
     def __init__(self, channel, methods=None) -> None:
         self._channel = channel
@@ -52,14 +57,29 @@ class RpcCaller:
     
     def __getattribute__(self, name: str):
         if not name.startswith("_") and (self._method_names is None or name in self._method_names):
-            return RpcCaller.RpcProxy(self._channel, name)
+            return RpcProxy(self._channel, name)
         else: 
             return super().__getattribute__(name)
 
 class RpcChannel:
+    """
+    A wire agnostic json-rpc channel protocol for both server and client.
+    Enable each side to send RPC-requests (calling exposed methods on other side) and receive rpc-responses with the return value
 
-    def __init__(self, methods, socket, channel_id=None):
+    provides a .other property for callign remote methods.
+    e.g. answer = channel.other.add(a=1,b=1) will (For example) ask the other side to perform 1+1 and will return an RPC-response of 2
+    """
+
+    def __init__(self, methods:RpcMethodsBase, socket, channel_id=None):
+        """
+
+        Args:
+            methods (RpcMethodsBase): RPC methods to expose to other side
+            socket: socket object providing simple send/recv methods
+            channel_id (str, optional): uuid for channel. Defaults to None in which case a rnadom UUID is generated.
+        """
         self.methods = methods
+        # allow methods to access channel (for recursive calls - e.g. call me as a response for me calling you)
         self.methods.set_channel(self)
         # Pending requests - id-mapped to async-event
         self.requests: Dict[str, asyncio.Event] = {}
@@ -79,12 +99,22 @@ class RpcChannel:
         return method_signature.return_annotation if method_signature.return_annotation is not _empty else str
 
     async def send(self, data):
+        """
+        For internal use. wrap calls to underlying socket
+        """
         await self.socket.send(data)
 
-    async def receive(self, data):
+    async def receive(self):
+        """
+        For internal use. wrap calls to underlying socket
+        """        
         return await self.socket.recv()
 
     async def on_message(self, data):
+        """
+        Handle an incoming RPC message
+        This is the main function servers/clients using the channel need to call (upon reading a message on the wire)
+        """
         try:
             message = RpcMessage.parse_raw(data)
             if message.request is not None:
@@ -98,6 +128,13 @@ class RpcChannel:
         pass
 
     async def on_request(self, message: RpcRequest):
+        """
+        Handle incoming RPC requests - calling relevant exposed method
+
+        Args:
+            message (RpcRequest): the RPC request with the method to call
+        """
+        #TODO add exception support (catch exceptions and pass to other side as response with errors)
         logger.info("Handling RPC request", request=message)
         method = getattr(self.methods, message.method)
         if callable(method):
@@ -113,6 +150,12 @@ class RpcChannel:
                 await self.send(response.json())
 
     async def on_response(self, response: RpcResponse):
+        """
+        Handle an incoming response to a previous RPC call
+
+        Args:
+            response (RpcResponse): the received response
+        """
         logger.info("Handling RPC response", response=response)
         if response.call_id is not None and response.call_id in self.requests:
             self.responses[response.call_id] = response
