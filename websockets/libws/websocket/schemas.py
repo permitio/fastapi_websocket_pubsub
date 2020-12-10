@@ -1,4 +1,5 @@
 from typing import Dict, Generic, List, Optional, TypeVar
+
 from pydantic import BaseModel, ValidationError, validator
 from pydantic.generics import GenericModel
 
@@ -21,4 +22,4 @@ class RpcResponse(GenericModel, Generic[ResponseT]):
 class RpcMessage(BaseModel):
     request: Optional[RpcRequest] = None
     response: Optional[RpcResponse] = None
- 
+

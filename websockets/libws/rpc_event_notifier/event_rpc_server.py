@@ -1,6 +1,5 @@
-from lib.event_notifier import TopicList
-from lib.websocket.websocket_rpc_endpoint import WebsocketRPCEndpoint
-
+from ..event_notifier import TopicList
+from ..websocket.websocket_rpc_endpoint import WebsocketRPCEndpoint
 from .rpc_event_methods import RpcEventServerMethods
 from .websocket_rpc_event_notifier import WebSocketRpcEventNotifier
 
@@ -14,7 +13,7 @@ class EventRpcEndpoint:
         """
 
         Args:
-            methods_class (optional): a class deriving from RpcEventServerMethods providing a 'subscribe' rpc method 
+            methods_class (optional): a class deriving from RpcEventServerMethods providing a 'subscribe' rpc method
                                       or None if RpcEventServerMethods should be used as is
             notifier (optional): Instance of WebSocketRpcEventNotifier or None to use WebSocketRpcEventNotifier() as is
         """
@@ -33,5 +32,5 @@ class EventRpcEndpoint:
         Register websocket routes on the given router
         Args:
             router: FastAPI router to load route onto
-        """        
+        """
         self.endpoint.register_routes(router)

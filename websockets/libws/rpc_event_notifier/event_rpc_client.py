@@ -1,6 +1,7 @@
-from lib.websocket.websocket_rpc_client import WebSocketRpcClient
-from .rpc_event_methods import RpcEventClientMethods
 import asyncio
+
+from ..websocket.websocket_rpc_client import WebSocketRpcClient
+from .rpc_event_methods import RpcEventClientMethods
 
 
 class EventRpcClient:
@@ -18,7 +19,7 @@ class EventRpcClient:
     def __init__(self, topics=None, methods=None) -> None:
         """
         Args:
-            topics client should subscribe to. 
+            topics client should subscribe to.
             methods ([type], optional): [description]. Defaults to None.
         """
         self.topics = topics
@@ -42,12 +43,12 @@ class EventRpcClient:
         Start the client and wait on the sever-side
         """
         asyncio.get_event_loop().run_until_complete(self._client_loop(server_uri))
-                
+
     def start_client_async(self, server_uri):
         """
         Start the client and return once finished subscribing to events
         RPC notifications will still be handeled in the background
         """
         asyncio.get_event_loop().run_until_complete(self._client_loop(server_uri, False))
-                
+
 

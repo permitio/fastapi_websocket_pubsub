@@ -1,14 +1,14 @@
 import asyncio
+from inspect import _empty, getmembers, ismethod, signature
+from typing import Any, Dict
 
-from typing import Dict
-from .schemas import RpcRequest, RpcResponse, RpcMessage
-from .rpc_methods import NoResponse, RpcMethodsBase
-from lib.utils import gen_uid
-from typing import Dict, Any
 from pydantic import ValidationError
-import asyncio
-from lib.logger import logger
-from inspect import signature, _empty, getmembers, ismethod
+
+from ..logger import logger
+from ..utils import gen_uid
+from .rpc_methods import NoResponse, RpcMethodsBase
+from .schemas import RpcMessage, RpcRequest, RpcResponse
+
 
 class UnknownMethodException(Exception):
     pass
@@ -42,23 +42,23 @@ class RpcProxy:
     """
     def __init__(self, channel, method_name) -> None:
         self.method_name = method_name
-        self.channel = channel 
-        
+        self.channel = channel
+
     def __call__(self, **kwds: Any) -> Any:
         return self.channel.call(self.method_name, args=kwds)
 class RpcCaller:
     """
     Helper class provide an object (aka other) with callable methods for each remote method on the otherside
     """
-           
+
     def __init__(self, channel, methods=None) -> None:
         self._channel = channel
         self._method_names = [method[0] for method in  getmembers(methods, lambda i: ismethod(i))] if methods is not None else None
-    
+
     def __getattribute__(self, name: str):
         if not name.startswith("_") and (self._method_names is None or name in self._method_names):
             return RpcProxy(self._channel, name)
-        else: 
+        else:
             return super().__getattribute__(name)
 
 class RpcChannel:
@@ -87,7 +87,7 @@ class RpcChannel:
         self.responses = {}
         self.socket = socket
         #Unique channel id
-        self.id = channel_id if channel_id is not None else gen_uid() 
+        self.id = channel_id if channel_id is not None else gen_uid()
         #
         # convineice caller
         # TODO - pass remote methods object to support validation before call
@@ -107,7 +107,7 @@ class RpcChannel:
     async def receive(self):
         """
         For internal use. wrap calls to underlying socket
-        """        
+        """
         return await self.socket.recv()
 
     async def on_message(self, data):

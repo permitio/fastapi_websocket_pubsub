@@ -1,6 +1,7 @@
-from lib.websocket.rpc_methods import RpcMethodsBase
-from lib.event_notifier import EventNotifier, Subscription, TopicList
-from lib.logger import logger
+from ..event_notifier import EventNotifier, Subscription, TopicList
+from ..logger import logger
+from ..websocket.rpc_methods import RpcMethodsBase
+
 
 class RpcEventServerMethods(RpcMethodsBase):
 
@@ -8,10 +9,10 @@ class RpcEventServerMethods(RpcMethodsBase):
         super().__init__()
         self.event_notifier = event_notifier
 
-    
+
     async def subscribe(self, topics:TopicList=[])->bool:
         try:
-            
+
             async def callback(subscription:Subscription, data):
                 # remove the actual function
                 sub = subscription.copy(exclude={"callback"})
@@ -30,5 +31,4 @@ class RpcEventClientMethods(RpcMethodsBase):
 
     async def notify(self, subscription=None, data=None):
         logger.info("Received notification of event", subscription=subscription, data=data)
-        
-        
+

@@ -4,15 +4,16 @@ import logging
 import logging.config
 import os
 import threading
+
 import structlog
-from structlog import stdlib, DropEvent
+from structlog import stdlib
 from pydantic import BaseModel
 
-from lib.logger.base_logger_conf import DEV_LOGGING, PROD_LOGGING
+from .base_logger_conf import DEV_LOGGING, PROD_LOGGING
 
 
 def is_dev():
-    return "PROD_ENV" not in os.environ  
+    return "PROD_ENV" not in os.environ
 
 default_log_level = "DEBUG" if is_dev() else "INFO"
 log_level = os.environ.get("LOG_LEVEL", default_log_level)
@@ -32,7 +33,7 @@ def _add_thread_info(logger, method_name, event_dict):  # pylint: disable=unused
     event_dict["thread_name"] = thread.name
     return event_dict
 
-def _render_models(logger, method_name, event_dict):  
+def _render_models(logger, method_name, event_dict):
     return {k: v.dict() if isinstance(v,BaseModel) else v for k,v in event_dict.items()}
 
 def _order_keys(logger, method_name, event_dict):  # pylint: disable=unused-argument

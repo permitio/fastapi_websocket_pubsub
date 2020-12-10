@@ -1,8 +1,10 @@
-from lib.logger import logger
-from lib.utils import gen_uid
-from typing import List, Callable, Dict, Union
-from pydantic import BaseModel  # pylint: disable=no-name-in-module
 import asyncio
+from typing import Callable, Dict, List, Union
+
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
+
+from .logger import logger
+from .utils import gen_uid
 
 SubscriberID = str
 SubscriptionID = str
@@ -13,7 +15,7 @@ TopicList = List[Topic]
 class Subscription(BaseModel):
     """
     Data model to be stored per subscription, and sent to each subscriber via the callback
-    This allows for serializing the data down the line and sending to potential remote subscribers (via the callback), 
+    This allows for serializing the data down the line and sending to potential remote subscribers (via the callback),
     in which case the callback field itself should be removed first.
     """
     id:  SubscriptionID
@@ -24,8 +26,8 @@ class Subscription(BaseModel):
 
 class EventNotifier:
     """
-    A Basic Pub/Sub class using callback functions as the 
-    Subscribers subscribe using self.subscribe, choosing topics to subscribe to 
+    A Basic Pub/Sub class using callback functions as the
+    Subscribers subscribe using self.subscribe, choosing topics to subscribe to
     and passing a callback that will be called on a publish/notify event (with the topic and data)
 
 

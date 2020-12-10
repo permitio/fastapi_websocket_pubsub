@@ -1,5 +1,7 @@
-from typing import List, Dict
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from typing import List
+
+from fastapi import WebSocket
+
 
 class ConnectionManager:
     def __init__(self):
@@ -12,4 +14,4 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
 
-    
+

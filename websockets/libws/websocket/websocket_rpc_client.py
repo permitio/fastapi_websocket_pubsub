@@ -1,12 +1,15 @@
-import websockets
-from .schemas import RpcRequest, RpcResponse
-from lib.utils import gen_uid
-from typing import Dict
-import uuid
-from pydantic import ValidationError
 import asyncio
 import logging
+import uuid
+from typing import Dict
+
+import websockets
+from pydantic import ValidationError
+
+from ..utils import gen_uid
 from .rpc_channel import RpcChannel
+from .schemas import RpcRequest, RpcResponse
+
 
 class WebSocketRpcClient:
     """
@@ -86,4 +89,3 @@ class WebSocketRpcClient:
         Proxy object to call methods on the other side
         """
         return self.channel.other
-  

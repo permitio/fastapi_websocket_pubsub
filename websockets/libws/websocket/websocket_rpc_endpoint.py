@@ -1,8 +1,9 @@
 from fastapi import WebSocket, WebSocketDisconnect
-from lib.websocket.rpc_methods import RpcMethodsBase
 
 from .connection_manager import ConnectionManager
 from .rpc_channel import RpcChannel
+from .rpc_methods import RpcMethodsBase
+
 
 class WebSocketSimplifier:
     """
@@ -23,7 +24,7 @@ class WebSocketSimplifier:
 
 class WebsocketRPCEndpoint:
     """
-    A websocket RPC sever endpoint, exposing RPC methods 
+    A websocket RPC sever endpoint, exposing RPC methods
     """
 
     def __init__(self, methods: RpcMethodsBase, manager=None):
