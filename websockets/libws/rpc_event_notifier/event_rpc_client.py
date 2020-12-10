@@ -43,7 +43,11 @@ class EventRpcClient:
         self._on_connect_callbacks = []
         self._running = False
 
-    async def _client_loop(self, uri, wait_on_reader=True):
+    async def run(self, uri, wait_on_reader=True):
+        """
+        runs the rpc client (async api).
+        if you want to call from a syncronous program, use start_client().
+        """
         async with WebSocketRpcClient(uri, self._methods) as client:
             self._running = True
             await self._on_connection(client)
@@ -72,17 +76,19 @@ class EventRpcClient:
         if topic in self._callbacks:
             await self._callbacks[topic](data=data)
 
-    def start_client(self, server_uri):
+    def start_client(self, server_uri, loop: asyncio.AbstractEventLoop = None):
         """
         Start the client and wait on the sever-side
         """
-        asyncio.get_event_loop().run_until_complete(self._client_loop(server_uri))
+        loop = loop or asyncio.get_event_loop()
+        loop.run_until_complete(self.run(server_uri))
 
-    def start_client_async(self, server_uri):
+    def start_client_async(self, server_uri, loop: asyncio.AbstractEventLoop = None):
         """
         Start the client and return once finished subscribing to events
         RPC notifications will still be handeled in the background
         """
-        asyncio.get_event_loop().run_until_complete(self._client_loop(server_uri, False))
+        loop = loop or asyncio.get_event_loop()
+        loop.run_until_complete(self.run(server_uri, False))
 
 
