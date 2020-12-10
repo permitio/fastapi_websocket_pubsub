@@ -1,4 +1,6 @@
-from ..event_notifier import TopicList
+from typing import Union
+
+from ..event_notifier import Topic, TopicList
 from ..websocket.websocket_rpc_endpoint import WebsocketRPCEndpoint
 from .rpc_event_methods import RpcEventServerMethods
 from .websocket_rpc_event_notifier import WebSocketRpcEventNotifier
@@ -21,7 +23,7 @@ class EventRpcEndpoint:
         self.methods = methods_class(self.notifier) if methods_class is not None else RpcEventServerMethods(self.notifier)
         self.endpoint = WebsocketRPCEndpoint(self.methods)
 
-    async def notify(self, topics: TopicList, data=None):
+    async def notify(self, topics: Union[TopicList, Topic], data=None):
         """
         Notify subscribres of given topics currently connected to the endpoint
         """
