@@ -1,6 +1,6 @@
 PROD_LOGGING = {
     "version": 1,
-    "disable_existing_loggers": True,
+    "disable_existing_loggers": False,
     "formatters":
         {
             "json": {
@@ -24,7 +24,7 @@ PROD_LOGGING = {
 
 DEV_LOGGING = {
     "version": 1,
-    "disable_existing_loggers": True,
+    "disable_existing_loggers": False,
     "handlers": {
         "default": {
             "level": "DEBUG",
