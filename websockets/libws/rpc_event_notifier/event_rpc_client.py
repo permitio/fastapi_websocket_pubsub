@@ -1,6 +1,7 @@
 import asyncio
 from typing import Coroutine, List
 
+from ..logger import logger
 from ..event_notifier import Subscription, Topic
 from ..websocket.rpc_methods import RpcMethodsBase
 from ..websocket.websocket_rpc_client import WebSocketRpcClient
@@ -48,6 +49,7 @@ class EventRpcClient:
         runs the rpc client (async api).
         if you want to call from a syncronous program, use start_client().
         """
+        logger.info(f"trying to connect to server on {uri}")
         async with WebSocketRpcClient(uri, self._methods) as client:
             self._running = True
             await self._on_connection(client)
@@ -67,6 +69,7 @@ class EventRpcClient:
         """
         Method called upon first connection to server
         """
+        logger.info(f"connected to server on {client.uri}")
         if self._topics:
             await client.channel.other.subscribe(topics=self._topics)
         if self._on_connect_callbacks:
