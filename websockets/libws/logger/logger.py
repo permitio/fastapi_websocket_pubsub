@@ -57,16 +57,19 @@ processors_list = [
     # Include the exception when exc_info=True
     # e.g log.exception() or log.warning(exc_info=True)'s behavior
     structlog.processors.format_exc_info,
-    # Creates the necessary args, kwargs for log()
+    # add the logger name
+    structlog.stdlib.add_logger_name,
 ]
 if not is_dev():
     processors_list = processors_list + [
-        structlog.stdlib.add_logger_name,
         _order_keys,
-        structlog.stdlib.render_to_log_kwargs,
+        structlog.processors.JSONRenderer() # in prod, render to json
     ]
 else:
-    processors_list = processors_list + [_order_keys, structlog.dev.ConsoleRenderer(repr_native_str=True)]
+    processors_list = processors_list + [
+        _order_keys,
+        structlog.dev.ConsoleRenderer(repr_native_str=True) # renders to console (stdout)
+    ]
 
 structlog.configure_once(
     context_class=dict,
