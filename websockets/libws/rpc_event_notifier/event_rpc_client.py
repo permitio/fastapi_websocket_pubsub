@@ -1,12 +1,13 @@
 import asyncio
 from typing import Coroutine, List
 
-from ..logger import logger
+from ..logger import get_logger
 from ..event_notifier import Subscription, Topic
 from ..websocket.rpc_methods import RpcMethodsBase
 from ..websocket.websocket_rpc_client import WebSocketRpcClient
 from .rpc_event_methods import RpcEventClientMethods
 
+logger = get_logger('RpcClient')
 
 class EventRpcClient:
     """

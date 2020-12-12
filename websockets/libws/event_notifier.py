@@ -3,7 +3,7 @@ from typing import Callable, Dict, List, Union
 
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
-from .logger import logger
+from .logger import get_logger
 from .utils import gen_uid
 
 SubscriberID = str
@@ -11,6 +11,7 @@ SubscriptionID = str
 Topic = str
 TopicList = List[Topic]
 
+logger = get_logger('EventNotifier')
 
 class Subscription(BaseModel):
     """
@@ -76,7 +77,7 @@ class EventNotifier:
                                                 topic=topic,
                                                 callback=callback)
                 subscriptions.append(new_subscription)
-                logger.info("New subscription", subscription=new_subscription)
+                logger.info("New subscription", subscription=new_subscription.dict())
 
     async def unsubscribe(self, subscriber_id: SubscriberID, topics: Union[TopicList, None]=None):
         """

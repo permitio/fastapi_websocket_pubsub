@@ -79,4 +79,3 @@ structlog.configure_once(
 )
 
 logger = get_logger(__name__)
-logger.info("logging started")

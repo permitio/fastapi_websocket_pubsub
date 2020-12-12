@@ -4,11 +4,12 @@ from typing import Any, Dict
 
 from pydantic import ValidationError
 
-from ..logger import logger
+from ..logger import get_logger
 from ..utils import gen_uid
 from .rpc_methods import NoResponse, RpcMethodsBase
 from .schemas import RpcMessage, RpcRequest, RpcResponse
 
+logger = get_logger('RpcChannel')
 
 class UnknownMethodException(Exception):
     pass
@@ -139,7 +140,7 @@ class RpcChannel:
             message (RpcRequest): the RPC request with the method to call
         """
         #TODO add exception support (catch exceptions and pass to other side as response with errors)
-        logger.info("Handling RPC request", request=message)
+        logger.info("Handling RPC request", request=message.dict())
         method = getattr(self.methods, message.method)
         if callable(method):
             result = await method(**message.arguments)
@@ -160,7 +161,7 @@ class RpcChannel:
         Args:
             response (RpcResponse): the received response
         """
-        logger.info("Handling RPC response", response=response)
+        logger.info("Handling RPC response", response=response.dict())
         if response.call_id is not None and response.call_id in self.requests:
             self.responses[response.call_id] = response
             promise = self.requests[response.call_id]
@@ -183,7 +184,7 @@ class RpcChannel:
         """
         msg = RpcMessage(request=RpcRequest(
             method=name, arguments=args, call_id=gen_uid()))
-        logger.info("Calling RPC method", message=msg)
+        logger.info("Calling RPC method", message=msg.dict())
         await self.send(msg.json())
         promise = self.requests[msg.request.call_id] = RpcPromise(msg.request)
         return promise
