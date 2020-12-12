@@ -92,7 +92,7 @@ class RpcChannel:
         # convineice caller
         # TODO - pass remote methods object to support validation before call
         self.other = RpcCaller(self)
-
+        self._on_disconnect = None
 
     def get_return_type(self, method):
         method_signature = signature(method)
@@ -124,8 +124,12 @@ class RpcChannel:
         except ValidationError as e:
             logger.error(f"Failed to parse message", message=data, error=e)
 
+    def register_disconnect_handler(self, coro):
+        self._on_disconnect = coro
+
     async def on_disconnect(self):
-        pass
+        if self._on_disconnect is not None:
+            return await self._on_disconnect(self.id)
 
     async def on_request(self, message: RpcRequest):
         """

@@ -21,13 +21,16 @@ class EventRpcEndpoint:
         """
         self.notifier = notifier if notifier is not None else WebSocketRpcEventNotifier()
         self.methods = methods_class(self.notifier) if methods_class is not None else RpcEventServerMethods(self.notifier)
-        self.endpoint = WebsocketRPCEndpoint(self.methods)
+        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=self.on_disconnect)
 
     async def notify(self, topics: Union[TopicList, Topic], data=None):
         """
         Notify subscribres of given topics currently connected to the endpoint
         """
         await self.notifier.notify(topics, data)
+
+    async def on_disconnect(self, channel_id: str):
+        await self.notifier.unsubscribe(channel_id)
 
     def register_routes(self, router):
         """

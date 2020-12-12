@@ -78,7 +78,7 @@ class EventNotifier:
                 subscriptions.append(new_subscription)
                 logger.info("New subscription", subscription=new_subscription)
 
-    async def unsubscribe(self, subscriber_id: SubscriberID, topics: Union[TopicList, None]):
+    async def unsubscribe(self, subscriber_id: SubscriberID, topics: Union[TopicList, None]=None):
         """
         Unsubscribe from given topics.
         Pass topics=None to unsubscribe the given subscriber from all topics
@@ -93,6 +93,7 @@ class EventNotifier:
                 topics = self._topics
             for topic in topics:
                 subscribers = self._topics[topic]
+                logger.info("Removing Subscription", topic=topic, subscriber_id=subscriber_id)
                 del subscribers[subscriber_id]
 
     async def notify(self, topics: Union[TopicList, Topic], data=None):

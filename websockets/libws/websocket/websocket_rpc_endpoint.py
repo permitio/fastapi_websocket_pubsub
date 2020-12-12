@@ -27,7 +27,7 @@ class WebsocketRPCEndpoint:
     A websocket RPC sever endpoint, exposing RPC methods
     """
 
-    def __init__(self, methods: RpcMethodsBase, manager=None):
+    def __init__(self, methods: RpcMethodsBase, manager=None, on_disconnect=None):
         """[summary]
 
         Args:
@@ -36,6 +36,7 @@ class WebsocketRPCEndpoint:
         """
         self.manager = manager if manager is not None else ConnectionManager()
         self.methods = methods
+        self._on_disconnect = on_disconnect
 
     def register_routes(self, router, prefix="/ws/"):
         """
@@ -49,6 +50,7 @@ class WebsocketRPCEndpoint:
         async def websocket_endpoint(websocket: WebSocket, client_id: str):
             await self.manager.connect(websocket)
             channel = RpcChannel(self.methods, WebSocketSimplifier(websocket))
+            channel.register_disconnect_handler(self._on_disconnect)
             try:
                 while True:
                     data = await websocket.receive_text()

@@ -21,13 +21,17 @@ class RpcMethodsBase:
     """
 
     def __init__(self):
-        self.channel = None
+        self._channel = None
 
     def set_channel(self, channel):
         """
         Allows the channel to share access to its functions to the methods once nested under it
         """
-        self.channel = channel
+        self._channel = channel
+
+    @property
+    def channel(self):
+        return self._channel
 
 
 class ProcessDetails(BaseModel):
