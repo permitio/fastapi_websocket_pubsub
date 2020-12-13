@@ -2,8 +2,8 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.routing import APIRouter
 
-from libws.websocket.rpc_methods import RpcUtilityMethods
-from libws.websocket.websocket_rpc_endpoint import WebsocketRPCEndpoint
+from fastapi_websocket_rpc.websocket.rpc_methods import RpcUtilityMethods
+from fastapi_websocket_rpc.websocket.websocket_rpc_endpoint import WebsocketRPCEndpoint
 
 app =  FastAPI()
 router = APIRouter()

@@ -11,7 +11,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.routing import APIRouter
 
-from libws.rpc_event_notifier import EventRpcEndpoint
+from fastapi_websocket_rpc.rpc_event_notifier import EventRpcEndpoint
 
 app =  FastAPI()
 router = APIRouter()

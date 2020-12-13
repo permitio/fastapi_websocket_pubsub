@@ -7,7 +7,7 @@ def get_requirements(env=""):
         return [x.strip() for x in fp.read().split("\n") if not x.startswith("#")]
 
 setup(
-    name='libws',
+    name='fastapi_websocket_rpc',
     version='0.1.0',
     packages=find_packages(),
     python_requires='>=3.8',
