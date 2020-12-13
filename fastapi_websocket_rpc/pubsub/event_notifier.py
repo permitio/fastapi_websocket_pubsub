@@ -3,8 +3,8 @@ from typing import Callable, Dict, List, Union
 
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
-from .logger import get_logger
-from .utils import gen_uid
+from ..logger import get_logger
+from ..utils import gen_uid
 
 SubscriberID = str
 SubscriptionID = str
