@@ -1,6 +1,6 @@
 from typing import Union
 
-from ..event_notifier import Topic, TopicList
+from .event_notifier import Topic, TopicList
 from ..websocket.websocket_rpc_endpoint import WebsocketRPCEndpoint
 from .rpc_event_methods import RpcEventServerMethods
 from .websocket_rpc_event_notifier import WebSocketRpcEventNotifier

@@ -3,7 +3,7 @@ See notifier_sever_test.py for test instructions
 """
 import logging
 
-from fastapi_websocket_rpc.rpc_event_notifier import EventRpcClient
+from fastapi_websocket_rpc.pubsub import EventRpcClient
 
 async def on_steel(data):
     logging.info("running callback on_steel!")

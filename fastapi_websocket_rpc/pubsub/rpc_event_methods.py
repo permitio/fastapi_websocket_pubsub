@@ -1,4 +1,4 @@
-from ..event_notifier import EventNotifier, Subscription, TopicList
+from .event_notifier import EventNotifier, Subscription, TopicList
 from ..logger import get_logger
 from ..websocket.rpc_methods import RpcMethodsBase
 
