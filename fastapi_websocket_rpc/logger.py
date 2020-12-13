@@ -9,11 +9,54 @@ import structlog
 from structlog import stdlib
 from pydantic import BaseModel
 
-from .base_logger_conf import DEV_LOGGING, PROD_LOGGING
+
+PROD_LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters":
+        {
+            "json": {
+                "format": "%(message)s %(lineno)d %(pathname)s",
+                "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
+            }
+        },
+    "handlers": {
+        "json": {
+            "class": "logging.StreamHandler",
+            "formatter": "json"
+        }
+        },
+    "loggers": {
+        "": {
+            "handlers": ["json"],
+            "level": "INFO"
+        }
+        },
+}
+
+
+DEV_LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "default": {
+            "level": "DEBUG",
+            "()": "logging.StreamHandler",
+        }
+    },
+    "loggers": {
+        "": {
+            "handlers": ["default"],
+            "level": "INFO",
+            "propagate": True
+        }
+    },
+}
 
 
 def is_dev():
     return "PROD_ENV" not in os.environ
+
 
 default_log_level = "DEBUG" if is_dev() else "INFO"
 log_level = os.environ.get("LOG_LEVEL", default_log_level)
@@ -27,18 +70,20 @@ def get_logger(logger_name):
     logger.setLevel(log_level)
     return structlog.wrap_logger(logger)
 
+
 def _add_thread_info(logger, method_name, event_dict):  # pylint: disable=unused-argument
     thread = threading.current_thread()
     event_dict["thread_id"] = thread.ident
     event_dict["thread_name"] = thread.name
     return event_dict
 
+
 def _render_models(logger, method_name, event_dict):
-    return {k: v.dict() if isinstance(v,BaseModel) else v for k,v in event_dict.items()}
+    return {k: v.dict() if isinstance(v, BaseModel) else v for k, v in event_dict.items()}
+
 
 def _order_keys(logger, method_name, event_dict):  # pylint: disable=unused-argument
     return collections.OrderedDict(sorted(event_dict.items(), key=lambda item: (item[0] != "event", item)))
-
 
 
 logging.config.dictConfig(LOGGING_CONFIG)
@@ -63,12 +108,13 @@ processors_list = [
 if not is_dev():
     processors_list = processors_list + [
         _order_keys,
-        structlog.processors.JSONRenderer() # in prod, render to json
+        structlog.processors.JSONRenderer()  # in prod, render to json
     ]
 else:
     processors_list = processors_list + [
         _order_keys,
-        structlog.dev.ConsoleRenderer(repr_native_str=True) # renders to console (stdout)
+        # renders to console (stdout)
+        structlog.dev.ConsoleRenderer(repr_native_str=True)
     ]
 
 structlog.configure_once(
