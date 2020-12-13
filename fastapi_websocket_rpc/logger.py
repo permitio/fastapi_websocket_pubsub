@@ -117,11 +117,12 @@ else:
         structlog.dev.ConsoleRenderer(repr_native_str=True)
     ]
 
-structlog.configure_once(
-    context_class=dict,
-    logger_factory=stdlib.LoggerFactory(),
-    wrapper_class=stdlib.BoundLogger,
-    processors=processors_list,
-)
+if not structlog.is_configured():
+    structlog.configure_once(
+        context_class=dict,
+        logger_factory=stdlib.LoggerFactory(),
+        wrapper_class=stdlib.BoundLogger,
+        processors=processors_list,
+    )
 
 logger = get_logger(__name__)
