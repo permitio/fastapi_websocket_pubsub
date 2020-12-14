@@ -33,13 +33,13 @@ class EventRpcClient:
         override on_connect() to add more subscription / registartion logic
     """
 
-    def __init__(self, topics: List[Topic] = [], methods: RpcMethodsBase = None, **kwargs) -> None:
+    def __init__(self, topics: List[Topic] = [], methods_class=None, **kwargs) -> None:
         """
         Args:
             topics client should subscribe to.
             methods ([type], optional): [description]. Defaults to None.
         """
-        self._methods = methods if methods is not None else RpcEventClientMethods(self)
+        self._methods = methods_class(self) if methods_class is not None else RpcEventClientMethods(self)
         self._topics = topics # these topics will not have an attached callback
         self._callbacks = {}
         self._on_connect_callbacks = []
