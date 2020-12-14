@@ -50,7 +50,7 @@ class EventRpcClient:
         runs the rpc client (async api).
         if you want to call from a syncronous program, use start_client().
         """
-        logger.info(f"trying to connect to server on {uri}")
+        logger.info(f"trying to connect", server_uri=uri)
         async with WebSocketRpcClient(uri, self._methods) as client:
             self._running = True
             await self._on_connection(client)
@@ -70,7 +70,7 @@ class EventRpcClient:
         """
         Method called upon first connection to server
         """
-        logger.info(f"connected to server on {client.uri}")
+        logger.info(f"connected to server", server_uri=client.uri)
         if self._topics:
             await client.channel.other.subscribe(topics=self._topics)
         if self._on_connect_callbacks:
