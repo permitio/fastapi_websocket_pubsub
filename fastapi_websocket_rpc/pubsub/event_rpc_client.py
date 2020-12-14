@@ -2,7 +2,7 @@ import asyncio
 from typing import Coroutine, List
 
 from ..logger import get_logger
-from .event_notifier import Subscription, Topic
+from .event_notifier import Topic
 from ..websocket.rpc_methods import RpcMethodsBase
 from ..websocket.websocket_rpc_client import WebSocketRpcClient
 from .rpc_event_methods import RpcEventClientMethods
@@ -33,7 +33,7 @@ class EventRpcClient:
         override on_connect() to add more subscription / registartion logic
     """
 
-    def __init__(self, topics: List[Topic] = [], methods: RpcMethodsBase = None) -> None:
+    def __init__(self, topics: List[Topic] = [], methods: RpcMethodsBase = None, **kwargs) -> None:
         """
         Args:
             topics client should subscribe to.
@@ -44,6 +44,7 @@ class EventRpcClient:
         self._callbacks = {}
         self._on_connect_callbacks = []
         self._running = False
+        self._connect_kwargs = kwargs
 
     async def run(self, uri, wait_on_reader=True):
         """
@@ -51,7 +52,7 @@ class EventRpcClient:
         if you want to call from a syncronous program, use start_client().
         """
         logger.info(f"trying to connect", server_uri=uri)
-        async with WebSocketRpcClient(uri, self._methods) as client:
+        async with WebSocketRpcClient(uri, self._methods, **self._connect_kwargs) as client:
             self._running = True
             await self._on_connection(client)
             if wait_on_reader:
