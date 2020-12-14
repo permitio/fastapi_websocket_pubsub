@@ -40,9 +40,9 @@ class WebsocketRPCEndpoint:
         self.methods = methods
         self._on_disconnect = on_disconnect
 
-    async def main_loop(self, websocket: WebSocket):
+    async def main_loop(self, websocket: WebSocket, client_id: str = None, **kwargs):
         await self.manager.connect(websocket)
-        channel = RpcChannel(self.methods, WebSocketSimplifier(websocket))
+        channel = RpcChannel(self.methods, WebSocketSimplifier(websocket), **kwargs)
         channel.register_disconnect_handler(self._on_disconnect)
         try:
             while True:
@@ -52,14 +52,14 @@ class WebsocketRPCEndpoint:
             self.manager.disconnect(websocket)
             await channel.on_disconnect()
 
-    def register_routes(self, router, prefix="/ws/"):
+    def register_routes(self, router, prefix="/ws"):
         """
         Register websocket routes on the given router
         Args:
             router: FastAPI router to load route onto
-            prefix (str, optional): the start of the route path - final route will add "{client_id}". Defaults to "/ws/".
+            prefix (str, optional): the start of the route path - final route will add "{client_id}". Defaults to "/ws".
         """
 
-        @router.websocket(prefix + "{client_id}")
+        @router.websocket(prefix + "/{client_id}")
         async def websocket_endpoint(websocket: WebSocket, client_id: str):
-            await self.main_loop(websocket)
+            await self.main_loop(websocket, client_id)
