@@ -1,4 +1,6 @@
 from fastapi import WebSocket, WebSocketDisconnect
+from fastapi.param_functions import Depends
+from fastapi import APIRouter, FastAPI, Depends, Header, HTTPException
 
 from .connection_manager import ConnectionManager
 from .rpc_channel import RpcChannel
@@ -38,6 +40,18 @@ class WebsocketRPCEndpoint:
         self.methods = methods
         self._on_disconnect = on_disconnect
 
+    async def main_loop(self, websocket: WebSocket):
+        await self.manager.connect(websocket)
+        channel = RpcChannel(self.methods, WebSocketSimplifier(websocket))
+        channel.register_disconnect_handler(self._on_disconnect)
+        try:
+            while True:
+                data = await websocket.receive_text()
+                await channel.on_message(data)
+        except WebSocketDisconnect:
+            self.manager.disconnect(websocket)
+            await channel.on_disconnect()
+
     def register_routes(self, router, prefix="/ws/"):
         """
         Register websocket routes on the given router
@@ -48,13 +62,4 @@ class WebsocketRPCEndpoint:
 
         @router.websocket(prefix + "{client_id}")
         async def websocket_endpoint(websocket: WebSocket, client_id: str):
-            await self.manager.connect(websocket)
-            channel = RpcChannel(self.methods, WebSocketSimplifier(websocket))
-            channel.register_disconnect_handler(self._on_disconnect)
-            try:
-                while True:
-                    data = await websocket.receive_text()
-                    await channel.on_message(data)
-            except WebSocketDisconnect:
-                self.manager.disconnect(websocket)
-                await channel.on_disconnect()
+            await self.main_loop(websocket)
