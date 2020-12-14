@@ -18,11 +18,14 @@ class WebSocketRpcClient:
     Exposes methods that the server can call
     """
 
-    def __init__(self, uri, methods):
+    def __init__(self, uri, methods, **kwargs):
         """
         Args:
             uri (str): server uri to connect to (e.g. 'http://localhost/ws/client1')
             methods (RpcMethodsBase): RPC methods to expose to the server
+            **kwargs: Additional args passed to connect (@see class Connect at websockets/client.py)
+                      https://websockets.readthedocs.io/en/stable/api.html#websockets.client.connect
+
 
             usage:
                 async with  WebSocketRpcClient(uri, RpcUtilityMethods()) as client:
@@ -30,6 +33,7 @@ class WebSocketRpcClient:
                 print (response)
         """
         self.methods = methods
+        self.connect_kwargs = kwargs
         # Websocket connection
         self.conn = None
         # Websocket object
@@ -47,7 +51,7 @@ class WebSocketRpcClient:
 
     async def __aenter__(self):
         # Start connection
-        self.conn = websockets.connect(self.uri)
+        self.conn = websockets.connect(self.uri, **self.connect_kwargs)
         # Get socket
         self.ws = await self.conn.__aenter__()
         # Init an RPC channel to work on-top of the connection
