@@ -66,6 +66,7 @@ class EventNotifier:
             topics (TopicList): A list of topic to subscribe to (Each topic is saved in a separate subscription)
             callback (Callable): the callback function to call upon a publish event
         """
+        import pdb; pdb.set_trace()
         async with self.lock:
             for topic in topics:
                 subscribers = self._topics[topic] = self._topics.get(topic, {})
@@ -78,6 +79,7 @@ class EventNotifier:
                                                 callback=callback)
                 subscriptions.append(new_subscription)
                 logger.info("New subscription", subscription=new_subscription.dict())
+        import pdb; pdb.set_trace()
 
     async def unsubscribe(self, subscriber_id: SubscriberID, topics: Union[TopicList, None]=None):
         """
@@ -88,6 +90,7 @@ class EventNotifier:
             subscriber_id (SubscriberID): A UUID identifying the subscriber
             topics (Union[TopicList, None]): Topics to unsubscribe from
         """
+        import pdb; pdb.set_trace()
         async with self.lock:
             # if no topics are given then unsubscribe from all topics
             if topics is None:
@@ -105,6 +108,7 @@ class EventNotifier:
             topics (Union[TopicList, Topic]): Topics to trigger a publish event for (Calling the callbacks of all their subscribers)
             data ([type], optional): Arbitrary data to pass each callback. Defaults to None.
         """
+        import pdb; pdb.set_trace()
         # allow caller to pass a single topic without a list
         if isinstance(topics, Topic):
             topics = [topics]
