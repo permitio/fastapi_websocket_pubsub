@@ -13,7 +13,7 @@ async def run_client(uri):
         response = await client.call("echo_method", {"method_name": "get_proccess_details", "args": {}})
         print(response)
         # wait for server to call us and we reply
-        await asyncio.sleep(1000)
+        await asyncio.sleep(1)
 
 
 if __name__ == "__main__":

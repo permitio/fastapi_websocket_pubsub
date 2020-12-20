@@ -1,10 +1,11 @@
 import asyncio
 from typing import Coroutine, List
+from retrying import retry
 
 from ..logger import get_logger
-from .event_notifier import Subscription, Topic
 from ..websocket.rpc_methods import RpcMethodsBase
 from ..websocket.websocket_rpc_client import WebSocketRpcClient
+from .event_notifier import Subscription, Topic
 from .rpc_event_methods import RpcEventClientMethods
 
 logger = get_logger('RpcClient')
