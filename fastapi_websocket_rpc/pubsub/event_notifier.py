@@ -115,5 +115,6 @@ class EventNotifier:
                 subscribers = self._topics.get(topic, {})
                 for subscriber_id, subscriptions in subscribers.items():
                     for subscription in subscriptions:
-                        # call callback with subscritpion-info and provided data
+                        # call callback with subscription-info and provided data
+                        logger.info("calling subscription callback", subscriber_id=subscriber_id, topic=topic, subscription=subscription, data=data)
                         await subscription.callback(subscription, data)
