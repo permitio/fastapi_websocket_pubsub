@@ -1,5 +1,6 @@
 from typing import Union
 
+from fastapi import WebSocket
 from .event_notifier import Topic, TopicList
 from ..websocket.websocket_rpc_endpoint import WebsocketRPCEndpoint
 from .rpc_event_methods import RpcEventServerMethods
@@ -31,6 +32,9 @@ class EventRpcEndpoint:
 
     async def on_disconnect(self, channel_id: str):
         await self.notifier.unsubscribe(channel_id)
+
+    async def main_loop(self, websocket: WebSocket, client_id: str = None, **kwargs):
+        await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
 
     def register_routes(self, router):
         """

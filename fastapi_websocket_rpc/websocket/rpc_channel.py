@@ -71,7 +71,7 @@ class RpcChannel:
     e.g. answer = channel.other.add(a=1,b=1) will (For example) ask the other side to perform 1+1 and will return an RPC-response of 2
     """
 
-    def __init__(self, methods:RpcMethodsBase, socket, channel_id=None):
+    def __init__(self, methods:RpcMethodsBase, socket, channel_id=None, **kwargs):
         """
 
         Args:
@@ -94,6 +94,12 @@ class RpcChannel:
         # TODO - pass remote methods object to support validation before call
         self.other = RpcCaller(self)
         self._on_disconnect = None
+        # any other kwarg goes straight to channel context (Accessible to methods)
+        self._context = kwargs or {}
+
+    @property
+    def context(self) -> Dict[str, Any]:
+        return self._context
 
     def get_return_type(self, method):
         method_signature = signature(method)
