@@ -1,6 +1,7 @@
 import asyncio
 from typing import Coroutine, List
-from retrying import retry
+from tenacity import retry, wait
+from websockets.exceptions import WebSocketException, ConnectionClosed
 
 from ..logger import get_logger
 from .event_notifier import Topic
@@ -35,11 +36,13 @@ class EventRpcClient:
         override on_connect() to add more subscription / registartion logic
     """
 
-    def __init__(self, topics: List[Topic] = [], methods_class=None, **kwargs) -> None:
+    def __init__(self, topics: List[Topic] = [], methods_class=None, retry_config=None, **kwargs) -> None:
         """
         Args:
-            topics client should subscribe to.
-            methods ([type], optional): [description]. Defaults to None.
+            topics (List[Topic]): topics client should subscribe to.
+            methods_class ([RpcMethodsBase], optional): RPC Methods exposed by client. Defaults to RpcEventClientMethods.
+            retry_config (Dict, optional): Tenacity (https://tenacity.readthedocs.io/) retry kwargs. Defaults to  {'wait': wait.wait_random_exponential(max=45)}
+                                           retry_config is used both for initial connection failures and reconnects upon connection loss
         """
         self._methods = methods_class(self) if methods_class is not None else RpcEventClientMethods(self)
         self._topics = topics # these topics will not have an attached callback
@@ -47,20 +50,34 @@ class EventRpcClient:
         self._on_connect_callbacks = []
         self._running = False
         self._connect_kwargs = kwargs
+        # Tenacity retry configuration
+        self._retry_config = retry_config if retry_config is not None else {'wait': wait.wait_random_exponential(max=45)}
 
     async def run(self, uri, wait_on_reader=True):
         """
         runs the rpc client (async api).
-        if you want to call from a syncronous program, use start_client().
+        if you want to call from a synchronous program, use start_client().
         """
-        logger.info(f"trying to connect", server_uri=uri)
-        async with WebSocketRpcClient(uri, self._methods, **self._connect_kwargs) as client:
-            self._running = True
-            await self._on_connection(client)
-            if wait_on_reader:
-                await client.wait_on_reader()
-            self._running = False
-
+        logger.info("trying to connect", server_uri=uri)
+        async with WebSocketRpcClient(uri, self._methods, retry_config=self._retry_config, **self._connect_kwargs) as client:
+            try:
+                # if we managed to connect
+                if client is not None:
+                    self._running = True
+                    await self._on_connection(client)
+                    if wait_on_reader:
+                        await client.wait_on_reader()
+            except ConnectionClosed:
+                logger.error("RPC connection lost")
+                # re-Raise so retry can reconnect us
+                raise
+            except WebSocketException as err:
+                logger.info("RPC connection failed", error=err)
+                # re-Raise so retry can reconnect us
+                raise
+            finally:
+                self._running = False
+            
     def subscribe(self, topic: Topic, callback: Coroutine):
         if not self._running:
             self._topics.append(topic)
@@ -83,19 +100,31 @@ class EventRpcClient:
         if topic in self._callbacks:
             await self._callbacks[topic](data=data)
 
-    def start_client(self, server_uri, loop: asyncio.AbstractEventLoop = None):
+    def get_run_function(self):
+        if self._retry_config is False:
+            return self.run
+        else:
+            return retry(**self._retry_config)(self.run)
+        
+    def start_client(self, server_uri, loop: asyncio.AbstractEventLoop = None, run_sync=True):
         """
-        Start the client and wait on the sever-side
+        Start the client and wait [if run_sync=True] on the sever-side
+
+        Args:
+            server_uri ([type]): uri to server
+            loop (asyncio.AbstractEventLoop, optional): even loop to run on. Defaults to asyncio.get_event_loop().
+            run_sync (bool, optional): Wait on server. Defaults to True.
+            Defaults to {}.
         """
         loop = loop or asyncio.get_event_loop()
-        loop.run_until_complete(self.run(server_uri))
+        run = self.get_run_function()
+        loop.run_until_complete(run(server_uri, run_sync))
 
     def start_client_async(self, server_uri, loop: asyncio.AbstractEventLoop = None):
         """
         Start the client and return once finished subscribing to events
         RPC notifications will still be handeled in the background
         """
-        loop = loop or asyncio.get_event_loop()
-        loop.run_until_complete(self.run(server_uri, False))
+        self.start_client(server_uri, loop, False)
 
 

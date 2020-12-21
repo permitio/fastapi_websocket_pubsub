@@ -1,7 +1,7 @@
 import asyncio
-import logging
 import uuid
 from typing import Dict
+from tenacity import retry, wait
 
 import websockets
 from pydantic import ValidationError
@@ -9,7 +9,9 @@ from pydantic import ValidationError
 from ..utils import gen_uid
 from .rpc_channel import RpcChannel
 from .schemas import RpcRequest, RpcResponse
+from ..logger import get_logger
 
+logger = get_logger("WebSocketRpc")
 
 class WebSocketRpcClient:
     """
@@ -18,7 +20,7 @@ class WebSocketRpcClient:
     Exposes methods that the server can call
     """
 
-    def __init__(self, uri, methods, **kwargs):
+    def __init__(self, uri, methods, retry_config=None, **kwargs):
         """
         Args:
             uri (str): server uri to connect to (e.g. 'http://localhost/ws/client1')
@@ -48,8 +50,10 @@ class WebSocketRpcClient:
         self._read_task = None
         # RPC channel
         self.channel = None
+        self.retry_config = retry_config if retry_config is not None else {'wait': wait.wait_exponential()}
 
-    async def __aenter__(self):
+    async def __connect__(self):
+        logger.info("Trying server", uri=self.uri)
         # Start connection
         self.conn = websockets.connect(self.uri, **self.connect_kwargs)
         # Get socket
@@ -60,11 +64,19 @@ class WebSocketRpcClient:
         self._read_task = asyncio.create_task(self.reader())
         return self
 
+    async def __aenter__(self):
+        if self.retry_config is False:
+            return await self.__connect__()
+        else:
+            return await retry(**self.retry_config)(self.__connect__)()
+
     async def __aexit__(self, *args, **kwargs):
-        # Stop reader
-        self._read_task.cancel()
+        # Stop reader - if created
+        if self._read_task:
+            self._read_task.cancel()
         # Stop socket
-        await self.conn.__aexit__(*args, **kwargs)
+        if (hasattr(self.conn, "ws_client")):
+            await self.conn.__aexit__(*args, **kwargs)
 
     async def reader(self):
         """
@@ -79,7 +91,6 @@ class WebSocketRpcClient:
         Join on the internal reader task
         """
         await self._read_task
-
 
     async def call(self, name, args={}):
         """
