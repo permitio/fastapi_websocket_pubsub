@@ -3,6 +3,10 @@ See notifier_sever_test.py for test instructions
 """
 import logging
 
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.basename(__file__), "..")))
+
 from fastapi_websocket_rpc.pubsub import EventRpcClient
 
 async def on_steel(data):
