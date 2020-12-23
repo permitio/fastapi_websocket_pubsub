@@ -3,8 +3,6 @@ from typing import Any, Union
 from pydantic.main import BaseModel
 from .event_notifier import EventNotifier, Subscription, TopicList
 from broadcaster import Broadcast
-import broadcaster
-
 
 from ..logger import get_logger
 from ..utils import gen_uid
@@ -54,7 +52,7 @@ class EventBroadcaster:
     async def __broadcast_notifications__(self, subscription:Subscription, data):
         logger.info("Handling incoming event for broadcast")
         note = BroadcastNotification(notifier_id=self._id, topics=[subscription.topic], data=data)
-        self._broadcast.publish(self._channel, note.json())
+        await self._broadcast.publish(self._channel, note.json())
         
     async def __aenter__(self):
         self._broadcaster =  await self._broadcast.__aenter__()
