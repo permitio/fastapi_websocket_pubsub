@@ -1,17 +1,23 @@
 import asyncio
-from typing import Callable, Dict, List, Union
-
+from typing import Callable, Dict, List, Union, Any
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
+import itertools
 
 from ..logger import get_logger
 from ..utils import gen_uid
 
-SubscriberID = str
-SubscriptionID = str
+logger = get_logger('EventNotifier')
+
+# Magic topic - meaning subscribe to all topics
+ALL_TOPICS = "__EventNotifier_ALL_TOPICS__"
+    
+
+# Basic Pub/Sub consts
+SubscriberId = str
+SubscriptionId = str
 Topic = str
 TopicList = List[Topic]
 
-logger = get_logger('EventNotifier')
 
 class Subscription(BaseModel):
     """
@@ -19,8 +25,8 @@ class Subscription(BaseModel):
     This allows for serializing the data down the line and sending to potential remote subscribers (via the callback),
     in which case the callback field itself should be removed first.
     """
-    id:  SubscriptionID
-    subscriber_id: SubscriberID
+    id:  SubscriptionId
+    subscriber_id: SubscriberId
     topic: Topic
     callback: Callable = None
 
@@ -45,9 +51,9 @@ class EventNotifier:
 
     def __init__(self):
         # Topics->subscribers->subscription mapping
-        self._topics: Dict[Topic, Dict[SubscriberID, List[Subscription]]] = {}
+        self._topics: Dict[Topic, Dict[SubscriberId, List[Subscription]]] = {}
         # Lock used to sync access to mapped subscriptions
-        self.lock = asyncio.Lock()
+        self._lock = asyncio.Lock()
 
     def gen_subscriber_id(self):
         return gen_uid()
@@ -55,7 +61,7 @@ class EventNotifier:
     def gen_subscription_id(self):
         return gen_uid()
 
-    async def subscribe(self, subscriber_id: SubscriberID, topics: TopicList, callback: Callable):
+    async def subscribe(self, subscriber_id: SubscriberId, topics: Union(TopicList, ALL_TOPICS), callback: Callable)-> List[Subscription]:
         """
         Subscribe to a set of topics.
         Once a notification (i.e. publish) of a topic is received the provided callback function will be called (with topic and data)
@@ -66,7 +72,10 @@ class EventNotifier:
             topics (TopicList): A list of topic to subscribe to (Each topic is saved in a separate subscription)
             callback (Callable): the callback function to call upon a publish event
         """
-        async with self.lock:
+        new_subscriptions = []
+        async with self._lock:
+            if topics == ALL_TOPICS:
+                topics = [ALL_TOPICS]
             for topic in topics:
                 subscribers = self._topics[topic] = self._topics.get(topic, {})
                 subscriptions = subscribers[subscriber_id] = subscribers.get(
@@ -77,9 +86,12 @@ class EventNotifier:
                                                 topic=topic,
                                                 callback=callback)
                 subscriptions.append(new_subscription)
-                logger.info("New subscription", subscription=new_subscription.dict())
+                new_subscriptions.append(new_subscription)
+                logger.info("New subscription",
+                            subscription=new_subscription.dict())
+            return new_subscriptions
 
-    async def unsubscribe(self, subscriber_id: SubscriberID, topics: Union[TopicList, None]=None):
+    async def unsubscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, None] = None):
         """
         Unsubscribe from given topics.
         Pass topics=None to unsubscribe the given subscriber from all topics
@@ -88,14 +100,16 @@ class EventNotifier:
             subscriber_id (SubscriberID): A UUID identifying the subscriber
             topics (Union[TopicList, None]): Topics to unsubscribe from
         """
-        async with self.lock:
+        async with self._lock:
             # if no topics are given then unsubscribe from all topics
             if topics is None:
                 topics = self._topics
             for topic in topics:
                 subscribers = self._topics[topic]
-                logger.info("Removing Subscription", topic=topic, subscriber_id=subscriber_id)
-                del subscribers[subscriber_id]
+                if subscriber_id in subscribers:
+                    logger.info("Removing Subscription", topic=topic,
+                                subscriber_id=subscriber_id)
+                    del subscribers[subscriber_id]
 
     async def notify(self, topics: Union[TopicList, Topic], data=None):
         """
@@ -109,12 +123,16 @@ class EventNotifier:
         if isinstance(topics, Topic):
             topics = [topics]
 
+        # get ALL_TOPICS subscribers
+        subscribers_to_all = self._topics.get(ALL_TOPICS, {})
+
         # TODO improve with reader/writer lock pattern - so multiple notifications can happen at once
-        async with self.lock:
+        async with self._lock:
             for topic in topics:
                 subscribers = self._topics.get(topic, {})
-                for subscriber_id, subscriptions in subscribers.items():
+                for subscriber_id, subscriptions in itertools.chain(subscribers.items(), subscribers_to_all.items()):
                     for subscription in subscriptions:
                         # call callback with subscription-info and provided data
-                        logger.info("calling subscription callback", subscriber_id=subscriber_id, topic=topic, subscription=subscription, data=data)
+                        logger.info("calling subscription callback", subscriber_id=subscriber_id,
+                                    topic=topic, subscription=subscription, data=data)
                         await subscription.callback(subscription, data)
