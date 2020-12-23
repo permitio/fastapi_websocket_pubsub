@@ -15,7 +15,7 @@ from fastapi_websocket_rpc.pubsub import EventRpcEndpoint
 
 app =  FastAPI()
 router = APIRouter()
-endpoint = EventRpcEndpoint()
+endpoint = EventRpcEndpoint(broadcaster="postgres://localhost:5432/acalladb")
 endpoint.register_routes(router)
 app.include_router(router)
 
