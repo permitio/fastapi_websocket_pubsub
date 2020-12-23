@@ -52,7 +52,8 @@ class EventBroadcaster:
         self._notifier = notifier
         
     async def __broadcast_notifications__(self, subscription:Subscription, data):
-        note = BroadcastNotification(notifier_id=self._id, topics=subscription.topic, data=data)
+        logger.info("Handling incoming event for broadcast")
+        note = BroadcastNotification(notifier_id=self._id, topics=[subscription.topic], data=data)
         self._broadcast.publish(self._channel, note.json())
         
     async def __aenter__(self):
@@ -65,9 +66,9 @@ class EventBroadcaster:
             self._subscriber = await self._subscription.__aenter__()
 
         # Subscribe to internal events form our own event notifier and broadcat them 
-        self._notifier.subscribe(self._id, event_notifier.ALL_TOPICS, self.__broadcast_notifications__)
+        await self._notifier.subscribe(self._id, event_notifier.ALL_TOPICS, self.__broadcast_notifications__)
 
-    async def __aexit__(self):
+    async def __aexit__(self, exc_type, exc, tb):
         try:
             # Close subscription
             if self._subscriber is not None:
@@ -95,15 +96,18 @@ class EventBroadcaster:
         if self._subscription_task is not None:
             raise BroadcasterAlreadyStarted("Can create one reader task per context")
         # Trigger the task       
-        self._subscription_task = asyncio.create_task(self.read_notifications)
+        logger.info("Spawning broadcast listen task")
+        self._subscription_task = asyncio.create_task(self.read_notifications())
         return self._subscription_task
 
     async def read_notifications(self):
         if self._subscriber is None:
             raise BroadcasterNotEntered("read notifications requires entering subscription context")
+        logger.info("Starting broadcaster listener")
         while True:
             async for event in self._subscriber:
                 notification = BroadcastNotification.parse_raw(event.data)
+                logger.info("Handling broadcast incoming event")
                 # Avoid re-publishing our own broadcasts
                 if notification.notifier_id != self._id:
                     # Notify subscribers of message received from broadcast

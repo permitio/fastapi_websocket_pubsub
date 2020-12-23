@@ -125,6 +125,7 @@ class EventNotifier:
 
         # get ALL_TOPICS subscribers
         subscribers_to_all = self._topics.get(ALL_TOPICS, {})
+        print (subscribers_to_all)
 
         # TODO improve with reader/writer lock pattern - so multiple notifications can happen at once
         async with self._lock:

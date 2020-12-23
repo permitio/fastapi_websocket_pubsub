@@ -6,17 +6,27 @@ To run this test.
 """
 
 import asyncio
-
+import os
+from starlette.websockets import WebSocket
 import uvicorn
 from fastapi import FastAPI
 from fastapi.routing import APIRouter
 
 from fastapi_websocket_rpc.pubsub import EventRpcEndpoint
 
+PORT = int(os.environ.get("PORT") or "8000")
+
+
 app =  FastAPI()
 router = APIRouter()
 endpoint = EventRpcEndpoint(broadcaster="postgres://localhost:5432/acalladb")
-endpoint.register_routes(router)
+
+@router.websocket("/ws/{client_id}")
+async def websocket_rpc_endpoint(websocket: WebSocket, client_id: str):
+    async with endpoint.broadcaster:
+        endpoint.broadcaster.start_reader_task() 
+        await endpoint.main_loop(websocket)
+        
 app.include_router(router)
 
 async def events():
@@ -31,4 +41,4 @@ async def events():
 async def trigger_events():
     asyncio.create_task(events())
 
-uvicorn.run(app, host="0.0.0.0", port=8000)
+uvicorn.run(app, host="0.0.0.0", port=PORT)
