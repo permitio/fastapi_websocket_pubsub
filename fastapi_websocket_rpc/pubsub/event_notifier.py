@@ -61,7 +61,7 @@ class EventNotifier:
     def gen_subscription_id(self):
         return gen_uid()
 
-    async def subscribe(self, subscriber_id: SubscriberId, topics: Union(TopicList, ALL_TOPICS), callback: Callable)-> List[Subscription]:
+    async def subscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, ALL_TOPICS], callback: Callable)-> List[Subscription]:
         """
         Subscribe to a set of topics.
         Once a notification (i.e. publish) of a topic is received the provided callback function will be called (with topic and data)
