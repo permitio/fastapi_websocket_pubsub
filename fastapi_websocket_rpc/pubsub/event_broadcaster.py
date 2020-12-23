@@ -104,11 +104,10 @@ class EventBroadcaster:
         if self._subscriber is None:
             raise BroadcasterNotEntered("read notifications requires entering subscription context")
         logger.info("Starting broadcaster listener")
-        while True:
-            async for event in self._subscriber:
-                notification = BroadcastNotification.parse_raw(event.data)
-                logger.info("Handling broadcast incoming event")
-                # Avoid re-publishing our own broadcasts
-                if notification.notifier_id != self._id:
-                    # Notify subscribers of message received from broadcast
-                    await self._notifier.notify(notification.topics, notification.data)
+        async for event in self._subscriber:
+            notification = BroadcastNotification.parse_raw(event.data)
+            logger.info("Handling broadcast incoming event")
+            # Avoid re-publishing our own broadcasts
+            if notification.notifier_id != self._id:
+                # Notify subscribers of message received from broadcast
+                await self._notifier.notify(notification.topics, notification.data)
