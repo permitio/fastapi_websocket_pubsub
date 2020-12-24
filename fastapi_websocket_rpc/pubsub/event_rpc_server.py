@@ -1,7 +1,8 @@
+from fastapi_websocket_rpc.pubsub.event_broadcaster import EventBroadcaster, Broadcast
 from typing import Union
 
 from fastapi import WebSocket
-from .event_notifier import Topic, TopicList
+from .event_notifier import EventNotifier, Topic, TopicList
 from ..websocket.websocket_rpc_endpoint import WebsocketRPCEndpoint
 from .rpc_event_methods import RpcEventServerMethods
 from .websocket_rpc_event_notifier import WebSocketRpcEventNotifier
@@ -12,23 +13,30 @@ class EventRpcEndpoint:
     RPC pub/sub server endpoint
     """
 
-    def __init__(self, methods_class=None, notifier=None):
+    def __init__(self, methods_class=None, notifier:EventNotifier=None, broadcaster:Union[EventBroadcaster, str]=None):
         """
 
         Args:
             methods_class (optional): a class deriving from RpcEventServerMethods providing a 'subscribe' rpc method
                                       or None if RpcEventServerMethods should be used as is
+
             notifier (optional): Instance of WebSocketRpcEventNotifier or None to use WebSocketRpcEventNotifier() as is
+                                 Handles to internal event pub/sub logic
+
+            broadcaster (optional): Instance of EventBroadcaster, a URL string to init EventBroadcaster, or None to not use
+                                    The broadcaster allows several EventRpcEndpoints across multiple processes / services to share incoming notifications 
         """
         self.notifier = notifier if notifier is not None else WebSocketRpcEventNotifier()
+        self.broadcaster = broadcaster if isinstance(broadcaster, EventBroadcaster) or broadcaster is None else EventBroadcaster(broadcaster, self.notifier)
         self.methods = methods_class(self.notifier) if methods_class is not None else RpcEventServerMethods(self.notifier)
         self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=self.on_disconnect)
+        self._id = self.notifier.gen_subscriber_id()
 
     async def notify(self, topics: Union[TopicList, Topic], data=None):
         """
         Notify subscribres of given topics currently connected to the endpoint
         """
-        await self.notifier.notify(topics, data)
+        await self.notifier.notify(topics, data, notifier_id=self._id)
 
     async def on_disconnect(self, channel_id: str):
         await self.notifier.unsubscribe(channel_id)

@@ -9,3 +9,5 @@ python-json-logger==2.0.1
 requests==2.25.0
 websockets
 tenacity==6.3.1
+broadcaster==0.2.0
+asyncpg==0.21.0
