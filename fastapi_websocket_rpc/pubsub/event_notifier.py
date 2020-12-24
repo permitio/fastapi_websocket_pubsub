@@ -1,5 +1,5 @@
 import asyncio
-from typing import Callable, Dict, List, Union, Any
+from typing import Callable, Dict, List, Optional, Union, Any
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 import itertools
 
@@ -10,7 +10,7 @@ logger = get_logger('EventNotifier')
 
 # Magic topic - meaning subscribe to all topics
 ALL_TOPICS = "__EventNotifier_ALL_TOPICS__"
-    
+
 
 # Basic Pub/Sub consts
 SubscriberId = str
@@ -29,6 +29,7 @@ class Subscription(BaseModel):
     subscriber_id: SubscriberId
     topic: Topic
     callback: Callable = None
+    notifier_id: Optional[str] = None
 
 
 class EventNotifier:
@@ -61,7 +62,7 @@ class EventNotifier:
     def gen_subscription_id(self):
         return gen_uid()
 
-    async def subscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, ALL_TOPICS], callback: Callable)-> List[Subscription]:
+    async def subscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, ALL_TOPICS], callback: Callable) -> List[Subscription]:
         """
         Subscribe to a set of topics.
         Once a notification (i.e. publish) of a topic is received the provided callback function will be called (with topic and data)
@@ -111,13 +112,45 @@ class EventNotifier:
                                 subscriber_id=subscriber_id)
                     del subscribers[subscriber_id]
 
-    async def notify(self, topics: Union[TopicList, Topic], data=None):
+    async def trigger_callback(self, data, topic: Topic, subscriber_id: SubscriberId, subscription: Subscription):
+        await subscription.callback(subscription, data)
+
+    async def callback_subscribers(self, subscribers: Dict[SubscriberId, Subscription],
+                                   topic: Topic,
+                                   data, notifier_id: SubscriberId = None, override_topic=False):
+        """
+        Trigger callbacks for given subscribers
+        Args:
+            subscribers (Dict[SubscriberId,Subscription]): the subscribers to notify of the event
+            topic (Topic): the topic of the event
+            data:  event data
+            notifier_id (SubscriberId, optional): id of the event sender. Defaults to None.
+            override_topic (bool, optional): Should the event/subscription topic be updated to match the given topic. Defaults to False.
+        """
+        for subscriber_id, subscriptions in subscribers.items():
+            # Don't notify the notifier
+            if subscriber_id != notifier_id:
+                logger.info("calling subscription callbacks",
+                            subscriber_id=subscriber_id,
+                            topic=topic, subscriptions=subscriptions)
+                for subscription in subscriptions:
+                    if override_topic:
+                        # Report actual topic instead of ALL_TOPICS (or whatever is saved in the subscription)
+                        event = subscription.copy()
+                        event.topic = topic
+                    else:
+                        event = subscription
+                    # call callback with subscription-info and provided data
+                    await self.trigger_callback(data, topic, subscriber_id, event)
+
+    async def notify(self, topics: Union[TopicList, Topic], data=None, notifier_id=None):
         """
         Notify subscribers of a new event per topic. (i.e. Publish events)
 
         Args:
             topics (Union[TopicList, Topic]): Topics to trigger a publish event for (Calling the callbacks of all their subscribers)
             data ([type], optional): Arbitrary data to pass each callback. Defaults to None.
+            notifier_id (str): an id of the entity sending the notification, use the same id as subscriber id to avoid getting your own notifications
         """
         # allow caller to pass a single topic without a list
         if isinstance(topics, Topic):
@@ -130,9 +163,8 @@ class EventNotifier:
         async with self._lock:
             for topic in topics:
                 subscribers = self._topics.get(topic, {})
-                for subscriber_id, subscriptions in itertools.chain(subscribers.items(), subscribers_to_all.items()):
-                    for subscription in subscriptions:
-                        # call callback with subscription-info and provided data
-                        logger.info("calling subscription callback", subscriber_id=subscriber_id,
-                                    topic=topic, subscription=subscription, data=data)
-                        await subscription.callback(subscription, data)
+                # handle direct topic subscribers
+                await self.callback_subscribers(subscribers, topic, data, notifier_id)
+                # handle ALL_TOPICS subscribers
+                # Use actual topic instead of ALL_TOPICS
+                await self.callback_subscribers(subscribers_to_all, topic, data, notifier_id, override_topic=True)

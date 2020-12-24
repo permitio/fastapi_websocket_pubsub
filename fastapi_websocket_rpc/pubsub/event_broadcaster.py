@@ -11,101 +11,134 @@ from fastapi_websocket_rpc.pubsub import event_notifier
 logger = get_logger('EventBroadcaster')
 
 
-
 # Cross service broadcast consts
 NotifierId = str
+
 
 class BroadcastNotification(BaseModel):
     notifier_id: NotifierId
     topics: TopicList
     data: Any
 
+
 class EventBroadcasterException(Exception):
     pass
 
-class BroadcasterNotEntered(EventBroadcasterException):
-    pass
 
 class BroadcasterAlreadyStarted(EventBroadcasterException):
     pass
 
 
 class EventBroadcaster:
+    """
+    Bridge EventNotifier to work across processes and machines by sharing their events through a broadcasting channel
 
-    def __init__(self, broadcast: Union[Broadcast,str], notifier: EventNotifier, channel="EventNotifier", is_publish_only=False) -> None:
-        # Broadcasting to more instances via message-queue
-        # The broadcast source (either a Broadcast instance or a URL to init an instance)
-        self._broadcast = broadcast if isinstance(broadcast, Broadcast) else Broadcast(broadcast)
-        # Object for working on top of a broadcast (result of async with on broadcast)
-        self._broadcaster = None
-        # Object for reading notifications (result of async with on subscription)
-        self._subscriber = None
-        # Object with channel/top registration (result of broadcast.subscribe)
-        self._subscription = None
+    Usage:
+    uri = "postgres://localhost:5432/db_name" #postgres example (also supports REDIS, Kafka, ...)
+    # start litsening for broadcast publications notifying the internal event-notifier, and subscribing to the internal notifier, broadcasting its notes
+    async with EventBroadcaster(uri, notifier) as broadcaster:
+        <Your Code>
+    """
+
+    def __init__(self, broadcast_url: str, notifier: EventNotifier, channel="EventNotifier", 
+                broadcast_type=None, is_publish_only=False) -> None:
+        """
+
+        Args:
+            broadcast_url (str): the URL of the broadcasting service
+            notifier (EventNotifier): the event notifier managing our internal events - which will be bridge via the broadcaster
+            channel (str, optional): Channel name. Defaults to "EventNotifier".
+            broadcast_type (Broadcast, optional): Broadcast class to use. None - Defaults to Broadcast.
+            is_publish_only (bool, optional): Should the broadcaster only transmit events and not listen to any. Defaults to False
+        """
+        # Broadcast init params
+        self._broadcast_url = broadcast_url
+        self._broadcast_type = broadcast_type or Broadcast
+        # Publish broadcast (initialized within async with statement)
+        self._broadcast = None
+        # channel to operate on
         self._channel = channel
+        # Async-io task for reading broadcasts (initialized within async with statement)
         self._subscription_task = None
-        self._is_publish_only = is_publish_only
         # Uniqueue instance id (used to avoid reading own notifications sent in broadcast)
         self._id = gen_uid()
+        # The internal events notifier
         self._notifier = notifier
-        
-    async def __broadcast_notifications__(self, subscription:Subscription, data):
-        logger.info("Handling incoming event for broadcast")
-        note = BroadcastNotification(notifier_id=self._id, topics=[subscription.topic], data=data)
-        await self._broadcast.publish(self._channel, note.json())
-        
+        self._is_publish_only = is_publish_only
+
+    async def __broadcast_notifications__(self, subscription: Subscription, data):
+        """
+        Share incoming internal notifications with the entire broadcast channel
+
+        Args:
+            subscription (Subscription): the subscription that got triggered
+            data: the event data
+        """
+        logger.info("Broadcasting incoming event", topic=subscription.topic, notifier_id=self._id)
+        note = BroadcastNotification(notifier_id=self._id, topics=[
+                                     subscription.topic], data=data)
+        # Publish event to broadcast
+        async with self._broadcast:
+            await self._broadcast.publish(self._channel, note.json())
+
     async def __aenter__(self):
-        self._broadcaster =  await self._broadcast.__aenter__()
-
-        # Subscribe to broadcasts and pass them to our own EventNotifier subscribers 
+        # Init the broadcast used for publishing (reading has its own)
+        self._broadcast = self._broadcast_type(self._broadcast_url)
         if not self._is_publish_only:
-            # TODO subscribe to channels based on current topics (self._topics)
-            self._subscription = self._broadcast.subscribe(channel=self._channel)
-            self._subscriber = await self._subscription.__aenter__()
-
-        # Subscribe to internal events form our own event notifier and broadcat them 
-        await self._notifier.subscribe(self._id, event_notifier.ALL_TOPICS, self.__broadcast_notifications__)
+            # Start task listening on incoming broadcasts
+            self.start_reader_task()
+        # Subscribe to internal events form our own event notifier and broadcast them
+        await self._notifier.subscribe(self._id,
+                                       event_notifier.ALL_TOPICS,
+                                       self.__broadcast_notifications__)
 
     async def __aexit__(self, exc_type, exc, tb):
         try:
-            # Close subscription
-            if self._subscriber is not None:
-                await self._subscription.__aexit__()
-            # Close broadcasting
-            if self._broadcaster is not None:
-                await self._broadcast.__aexit__()
-            # Cancel task
+            # Unsubscribe from internal events
+            await self._notifier.unsubscribe(self._id)
+            # Cancel task reading broadcast subscriptions
             if self._subscription_task is not None:
                 self._subscription_task.cancel()
-        except Exception as err:
-            logger.error("Failed to exit EventBroadcaster context", error=err)
-        finally:
-            # Clear state
-            self._broadcaster = None
-            self._subscription = None
-            self._subscriber = None
-            self._subscription_task = None
+                self._subscription_task = None
+        except:
+            logger.exception("Failed to exit EventBroadcaster context")
 
     def start_reader_task(self):
-        # Make sure we have entered the context
-        if self._subscriber is None:
-            raise BroadcasterNotEntered("read notifications requires entering subscription context")       
+        """Spawn a task reading incoming broadcasts and posting them to the intreal notifier
+        Raises:
+            BroadcasterAlreadyStarted: if called more than once per context
+        Returns:
+            the spawned task
+        """
         # Make sure a task wasn't started already
         if self._subscription_task is not None:
-            raise BroadcasterAlreadyStarted("Can create one reader task per context")
-        # Trigger the task       
+            raise BroadcasterAlreadyStarted(
+                "Can create one reader task per context")
+        # Trigger the task
         logger.info("Spawning broadcast listen task")
-        self._subscription_task = asyncio.create_task(self.read_notifications())
+        self._subscription_task = asyncio.create_task(
+            self.__read_notifications__())
         return self._subscription_task
 
-    async def read_notifications(self):
-        if self._subscriber is None:
-            raise BroadcasterNotEntered("read notifications requires entering subscription context")
+    async def __read_notifications__(self):
+        """
+        read incoming broadcasts and posting them to the intreal notifier
+        """
         logger.info("Starting broadcaster listener")
-        async for event in self._subscriber:
-            notification = BroadcastNotification.parse_raw(event.data)
-            logger.info("Handling broadcast incoming event")
-            # Avoid re-publishing our own broadcasts
-            if notification.notifier_id != self._id:
-                # Notify subscribers of message received from broadcast
-                await self._notifier.notify(notification.topics, notification.data)
+        # Init new broadcast channel for reading
+        broadcast_reader = self._broadcast_type(self._broadcast_url)
+        async with broadcast_reader:
+            # Subscribe to our channel
+            async with broadcast_reader.subscribe(channel=self._channel) as subscriber:
+                async for event in subscriber:
+                    try:
+                        notification = BroadcastNotification.parse_raw(event.message)
+                        # Avoid re-publishing our own broadcasts
+                        if notification.notifier_id != self._id:
+                            logger.info("Handling incoming broadcast event",
+                                        topics=notification.topics,
+                                        src=notification.notifier_id)
+                            # Notify subscribers of message received from broadcast
+                            await self._notifier.notify(notification.topics, notification.data, notifier_id = self._id)
+                    except:
+                        logger.exception("Failed handling incoming broadcast")
