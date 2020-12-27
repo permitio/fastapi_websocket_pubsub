@@ -1,3 +1,4 @@
+import functools
 import asyncio
 from typing import Coroutine, List
 from tenacity import retry, wait
@@ -11,6 +12,17 @@ from .event_notifier import Subscription, Topic
 from .rpc_event_methods import RpcEventClientMethods
 
 logger = get_logger('RpcClient')
+
+def apply_retry(func):
+    @functools.wraps(func)
+    async def wrapped_with_retries(self, *args, **kwargs):
+        if self._retry_config is False:
+            new_func = func
+        else:
+            retry_decorator = retry(**self._retry_config)
+            new_func = retry_decorator(func)
+        return await new_func(self, *args, **kwargs)
+    return wrapped_with_retries
 
 class EventRpcClient:
     """
@@ -53,6 +65,7 @@ class EventRpcClient:
         # Tenacity retry configuration
         self._retry_config = retry_config if retry_config is not None else {'wait': wait.wait_random_exponential(max=45)}
 
+    @apply_retry
     async def run(self, uri, wait_on_reader=True):
         """
         runs the rpc client (async api).
@@ -77,7 +90,7 @@ class EventRpcClient:
                 raise
             finally:
                 self._running = False
-            
+
     def subscribe(self, topic: Topic, callback: Coroutine):
         if not self._running:
             self._topics.append(topic)
@@ -100,12 +113,6 @@ class EventRpcClient:
         if topic in self._callbacks:
             await self._callbacks[topic](data=data)
 
-    def get_run_function(self):
-        if self._retry_config is False:
-            return self.run
-        else:
-            return retry(**self._retry_config)(self.run)
-        
     def start_client(self, server_uri, loop: asyncio.AbstractEventLoop = None, run_sync=True):
         """
         Start the client and wait [if run_sync=True] on the sever-side
@@ -117,8 +124,7 @@ class EventRpcClient:
             Defaults to {}.
         """
         loop = loop or asyncio.get_event_loop()
-        run = self.get_run_function()
-        loop.run_until_complete(run(server_uri, run_sync))
+        loop.run_until_complete(self.run(server_uri, run_sync))
 
     def start_client_async(self, server_uri, loop: asyncio.AbstractEventLoop = None):
         """
