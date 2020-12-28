@@ -107,7 +107,7 @@ class EventRpcClient:
         if self._topics:
             await client.channel.other.subscribe(topics=self._topics)
         if self._on_connect_callbacks:
-            await asyncio.gather(*self._on_connect_callbacks)
+            await asyncio.gather(*(callback() for callback in self._on_connect_callbacks))
 
     async def act_on_topic(self, topic: Topic, data=None):
         if topic in self._callbacks:
