@@ -88,6 +88,10 @@ class EventRpcClient:
                 logger.info("RPC connection failed", error=err)
                 # re-Raise so retry can reconnect us
                 raise
+            except Exception as err:
+                logger.critical("RPC Uncaught Error", error=err)
+                # re-Raise so retry can reconnect us
+                raise
             finally:
                 self._running = False
 
