@@ -32,6 +32,9 @@ class RpcEventServerMethods(RpcMethodsBase):
                          err=err, topics=topics)
             return False
 
+    async def ping(self) -> str:
+        return "pong"
+
 
 class RpcEventClientMethods(RpcMethodsBase):
 
