@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 import typing
+import copy
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
@@ -17,7 +18,9 @@ class NoResponse:
 
 class RpcMethodsBase:
     """
-    The basic interface RPC channels excpets method groups to implements.
+    The basic interface RPC channels excpets method groups to implement.
+     - create copy of the method object
+     - set channel 
     """
 
     def __init__(self):
@@ -32,6 +35,10 @@ class RpcMethodsBase:
     @property
     def channel(self):
         return self._channel
+
+    def copy(self):
+        """ Simple copy ctor - overriding classes may need to override copy as well."""
+        return copy.copy(self)
 
 
 class ProcessDetails(BaseModel):

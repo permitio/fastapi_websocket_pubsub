@@ -79,7 +79,7 @@ class RpcChannel:
             socket: socket object providing simple send/recv methods
             channel_id (str, optional): uuid for channel. Defaults to None in which case a rnadom UUID is generated.
         """
-        self.methods = methods
+        self.methods = methods.copy()
         # allow methods to access channel (for recursive calls - e.g. call me as a response for me calling you)
         self.methods.set_channel(self)
         # Pending requests - id-mapped to async-event
