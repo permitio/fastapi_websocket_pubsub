@@ -40,7 +40,7 @@ class EventBroadcaster:
         <Your Code>
     """
 
-    def __init__(self, broadcast_url: str, notifier: EventNotifier, channel="EventNotifier", 
+    def __init__(self, broadcast_url: str, notifier: EventNotifier, channel="EventNotifier",
                 broadcast_type=None, is_publish_only=False) -> None:
         """
 
@@ -65,6 +65,8 @@ class EventBroadcaster:
         # The internal events notifier
         self._notifier = notifier
         self._is_publish_only = is_publish_only
+        self._lock = asyncio.Lock()
+        self._num_connections = 0
 
     async def __broadcast_notifications__(self, subscription: Subscription, data):
         """
@@ -82,26 +84,37 @@ class EventBroadcaster:
             await self._broadcast.publish(self._channel, note.json())
 
     async def __aenter__(self):
-        # Init the broadcast used for publishing (reading has its own)
-        self._broadcast = self._broadcast_type(self._broadcast_url)
-        if not self._is_publish_only:
-            # Start task listening on incoming broadcasts
-            self.start_reader_task()
-        # Subscribe to internal events form our own event notifier and broadcast them
-        await self._notifier.subscribe(self._id,
-                                       event_notifier.ALL_TOPICS,
-                                       self.__broadcast_notifications__)
+        async with self._lock:
+            # Init the broadcast used for publishing (reading has its own)
+            self._broadcast = self._broadcast_type(self._broadcast_url)
+            if self._num_connections == 0:
+                if not self._is_publish_only:
+                    # Start task listening on incoming broadcasts
+                    self.start_reader_task()
+
+                logger.info("Subscribing to ALL TOPICS", reason="first client connected")
+                # Subscribe to internal events form our own event notifier and broadcast them
+                await self._notifier.subscribe(self._id,
+                                            event_notifier.ALL_TOPICS,
+                                            self.__broadcast_notifications__)
+            self._num_connections += 1
 
     async def __aexit__(self, exc_type, exc, tb):
-        try:
-            # Unsubscribe from internal events
-            await self._notifier.unsubscribe(self._id)
-            # Cancel task reading broadcast subscriptions
-            if self._subscription_task is not None:
-                self._subscription_task.cancel()
-                self._subscription_task = None
-        except:
-            logger.exception("Failed to exit EventBroadcaster context")
+        async with self._lock:
+            self._num_connections -= 1
+            if self._num_connections == 0:
+                try:
+                    # Unsubscribe from internal events
+                    logger.info("Unsubscribing from ALL TOPICS", reason="last client disconnected")
+                    await self._notifier.unsubscribe(self._id)
+
+                    # Cancel task reading broadcast subscriptions
+                    if self._subscription_task is not None:
+                        logger.info("Cancelling broadcast listen task")
+                        self._subscription_task.cancel()
+                        self._subscription_task = None
+                except:
+                    logger.exception("Failed to exit EventBroadcaster context")
 
     def start_reader_task(self):
         """Spawn a task reading incoming broadcasts and posting them to the intreal notifier
@@ -112,8 +125,10 @@ class EventBroadcaster:
         """
         # Make sure a task wasn't started already
         if self._subscription_task is not None:
-            raise BroadcasterAlreadyStarted(
-                "Can create one reader task per context")
+            # we already started a task for this worker process
+            logger.info("No need for listen task",
+                description="already started broadcast listen task for this notifier")
+            return
         # Trigger the task
         logger.info("Spawning broadcast listen task")
         self._subscription_task = asyncio.create_task(
