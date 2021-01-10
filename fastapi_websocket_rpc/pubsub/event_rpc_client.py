@@ -48,7 +48,7 @@ class EventRpcClient:
         override on_connect() to add more subscription / registartion logic
     """
 
-    def __init__(self, topics: List[Topic] = [], methods_class=None, retry_config=None, **kwargs) -> None:
+    def __init__(self, topics: List[Topic] = [], methods_class=None, retry_config=None, keep_alive_interval=0, **kwargs) -> None:
         """
         Args:
             topics (List[Topic]): topics client should subscribe to.
@@ -64,6 +64,8 @@ class EventRpcClient:
         self._connect_kwargs = kwargs
         # Tenacity retry configuration
         self._retry_config = retry_config if retry_config is not None else {'wait': wait.wait_random_exponential(max=45)}
+        self._keep_alive_interval = keep_alive_interval
+        self._keep_alive_task = None
 
     @apply_retry
     async def run(self, uri, wait_on_reader=True):
@@ -78,6 +80,7 @@ class EventRpcClient:
                 if client is not None:
                     self._running = True
                     await self._on_connection(client)
+                    self._start_keep_alive(client)
                     if wait_on_reader:
                         await client.wait_on_reader()
             except ConnectionClosed:
@@ -94,6 +97,7 @@ class EventRpcClient:
                 raise
             finally:
                 self._running = False
+                self._cancel_keep_alive()
 
     def subscribe(self, topic: Topic, callback: Coroutine):
         if not self._running:
@@ -136,5 +140,25 @@ class EventRpcClient:
         RPC notifications will still be handeled in the background
         """
         self.start_client(server_uri, loop, False)
+
+    async def _keep_alive(self, client):
+        while True:
+            await asyncio.sleep(self._keep_alive_interval)
+            logger.info("Pinging server")
+            await client.channel.other.ping()
+
+    def _cancel_keep_alive(self):
+        if self._keep_alive_task:
+            logger.info("Cancelling keep alive task")
+            self._keep_alive_task.cancel()
+            self._keep_alive_task = None
+
+    def _start_keep_alive(self, client):
+        self._cancel_keep_alive()
+        if self._keep_alive_interval <= 0:
+            return
+
+        logger.info("Starting keep alive task", interval=f"{self._keep_alive_interval} seconds")
+        self._keep_alive_task = asyncio.create_task(self._keep_alive(client))
 
 
