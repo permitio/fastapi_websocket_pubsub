@@ -1,11 +1,14 @@
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.param_functions import Depends
 from fastapi import APIRouter, FastAPI, Depends, Header, HTTPException
+import websockets
 
 from .connection_manager import ConnectionManager
 from .rpc_channel import RpcChannel
 from .rpc_methods import RpcMethodsBase
+from ..logger import get_logger
 
+logger = get_logger("RPC_ENDPOINT") 
 
 class WebSocketSimplifier:
     """
@@ -41,16 +44,22 @@ class WebsocketRPCEndpoint:
         self._on_disconnect = on_disconnect
 
     async def main_loop(self, websocket: WebSocket, client_id: str = None, **kwargs):
-        await self.manager.connect(websocket)
-        channel = RpcChannel(self.methods, WebSocketSimplifier(websocket), **kwargs)
-        channel.register_disconnect_handler(self._on_disconnect)
         try:
-            while True:
-                data = await websocket.receive_text()
-                await channel.on_message(data)
-        except WebSocketDisconnect:
+            await self.manager.connect(websocket)
+            channel = RpcChannel(self.methods, WebSocketSimplifier(websocket), **kwargs)
+            channel.register_disconnect_handler(self._on_disconnect)
+            try:
+                while True:
+                    data = await websocket.receive_text()
+                    await channel.on_message(data)
+            except WebSocketDisconnect:
+                logger.error(f"Client disconnected - {websocket.client.port} :: {channel.id}")
+                self.manager.disconnect(websocket)
+                await channel.on_disconnect()
+        except: 
+            logger.exception(f"Failed to serve - {websocket.client.port}")
             self.manager.disconnect(websocket)
-            await channel.on_disconnect()
+            
 
     def register_routes(self, router, prefix="/ws"):
         """
