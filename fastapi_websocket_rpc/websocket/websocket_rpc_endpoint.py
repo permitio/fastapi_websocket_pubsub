@@ -46,6 +46,7 @@ class WebsocketRPCEndpoint:
     async def main_loop(self, websocket: WebSocket, client_id: str = None, **kwargs):
         try:
             await self.manager.connect(websocket)
+            logger.info(f"Client connected", remote_address=websocket.client)
             channel = RpcChannel(self.methods, WebSocketSimplifier(websocket), **kwargs)
             channel.register_disconnect_handler(self._on_disconnect)
             try:
