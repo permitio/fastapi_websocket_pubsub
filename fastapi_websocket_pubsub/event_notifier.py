@@ -1,10 +1,10 @@
 import asyncio
-from typing import Callable, Dict, List, Optional, Union, Any
-from pydantic import BaseModel  # pylint: disable=no-name-in-module
-import itertools
+from typing import Any, Callable, Dict, List, Optional, Union
 
-from ..logger import get_logger
-from ..utils import gen_uid
+from fastapi_websocket_rpc.utils import gen_uid
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
+
+from .logger import get_logger
 
 logger = get_logger('EventNotifier')
 
