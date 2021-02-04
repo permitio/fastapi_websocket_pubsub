@@ -1,3 +1,9 @@
+"""
+Pattern: 
+        Publishing-Client -> PubSubServer -> Subscribing->Client
+
+"""
+
 import os
 import sys
 
@@ -44,7 +50,7 @@ def setup_publishing_client():
     this client will publish an event to the main-test client 
     """
     async def actual():
-        # # Give the other client a chance to subscribe (TODO: sync start between the processes)
+        # Wait for other client to wake up before publishing to it
         CLIENT_START_SYNC.wait(5)
         # Create a client and subscribe to topics
         client = PubSubClient()
