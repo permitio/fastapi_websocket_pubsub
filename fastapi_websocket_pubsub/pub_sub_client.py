@@ -19,24 +19,27 @@ class PubSubClient:
     """
     pub/sub client (RPC based)
 
-    Simple usage example (init class with subscription topics):
-        client = PubSubClient(["guns", "germs", "steel"])
-        client.start_client("ws://localhost:8000/ws/test-client1")
+    Usage as subscriber:
+        Simple usage example (init class with subscription topics):
+            client = PubSubClient(["guns", "germs", "steel"], callback_coroutine)
+            client.start_client("ws://localhost:8000/pubsub")
 
-    If you want to run callbacks on topic events:
-        client = PubSubClient()
-        # guns_coroutine will be awaited on when event arrives on "guns" topic
-        client.subscribe("guns", guns_coroutine)
-        client.subscribe("germs", germs_coroutine)
+        If you want to register separate callbacks per topic:
+            client = PubSubClient()
+            # guns_coroutine will be awaited on when event arrives on "guns" topic
+            client.subscribe("guns", guns_coroutine)
+            client.subscribe("germs", germs_coroutine)
 
-    you can also run callback on successful connection
-        client.on_connect(on_connect_coroutine)
+        When you are done registering callbacks (once you do, you cannot subscribe to more topics) call:
+            client.start_client("ws://localhost:8000/pubsub")
 
-    when you are done registering callbacks, call (once you do, you cannot subscribe to more topics)
-    client.start_client("ws://localhost:8000/ws/test-client1")
+    Usage as publisher:
+            client = PubSubClient()
+            client.start_client("ws://localhost:8000/pubsub")
+            # Channel must be ready before we can publish on it
+            await client.wait_until_ready()
+            await client.publish(["Breakfast Options"], data=["spam", "eggs and spam", {"no spam": "egg bacon spam and sausage"} ])
 
-    Advanced usage:
-        override on_connect() to add more subscription / registartion logic
     """
 
     def __init__(self, topics: List[Topic] = [], 
@@ -138,6 +141,7 @@ class PubSubClient:
                            'hello' or a complex path 'a/b/c/d' 
             callback (Coroutine): the function to call upon relevant event publishing
         """
+        # TODO: add support for post concnetion subscriptions
         if not self.is_ready():
             self._topics.append(topic)
             self._callbacks[topic] = callback
