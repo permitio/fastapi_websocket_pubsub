@@ -8,7 +8,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.basename(__file__), os.path
 
 import asyncio
 from multiprocessing import Process, Event as ProcEvent
-import requests
 
 import pytest
 import uvicorn
@@ -24,11 +23,12 @@ logger = get_logger("Test")
 # Configurable
 PORT = int(os.environ.get("PORT") or "7990")
 uri = f"ws://localhost:{PORT}/pubsub"
-trigger_url = f"http://localhost:{PORT}/trigger"
+
 
 DATA = "MAGIC"
 EVENT_TOPIC = "event/has-happened"
 
+CLIENT_START_SYNC = ProcEvent()
 
 def setup_server():
     app =  FastAPI()
@@ -44,8 +44,8 @@ def setup_publishing_client():
     this client will publish an event to the main-test client 
     """
     async def actual():
-        # Give the other client a chance to subscribe (TODO: sync start between the processes)
-        await asyncio.sleep(2)
+        # # Give the other client a chance to subscribe (TODO: sync start between the processes)
+        CLIENT_START_SYNC.wait(5)
         # Create a client and subscribe to topics
         client = PubSubClient()
         client.start_client(uri)
@@ -90,5 +90,9 @@ async def test_pub_sub_multi_client(server, pub_client):
     client.subscribe(EVENT_TOPIC, on_event)
     # start listentining
     client.start_client(uri)
+    await client.wait_until_ready()
+    # Let the other client know we're ready
+    logger.info("First client is ready")
+    CLIENT_START_SYNC.set()
     # wait for finish trigger
-    await asyncio.wait_for(finish.wait(),5)
+    await asyncio.wait_for(finish.wait(),10)
