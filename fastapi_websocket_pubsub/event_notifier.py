@@ -70,7 +70,8 @@ class EventNotifier:
 
         Args:
             subscriber_id (SubscriberID): A UUID identifying the subscriber
-            topics (TopicList): A list of topic to subscribe to (Each topic is saved in a separate subscription)
+            topics (TopicList, ALL_TOPICS): A list of topic to subscribe to (Each topic is saved in a separate subscription)
+                                ALL_TOPICS can be passed to subscribe to  everything (all current and future topics)
             callback (Callable): the callback function to call upon a publish event
         """
         new_subscriptions = []
