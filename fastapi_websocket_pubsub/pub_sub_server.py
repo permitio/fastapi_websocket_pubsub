@@ -14,7 +14,9 @@ class PubSubEndpoint:
     RPC pub/sub server endpoint
     """
 
-    def __init__(self, methods_class=None, notifier:EventNotifier=None, broadcaster:Union[EventBroadcaster, str]=None):
+    def __init__(self, methods_class=None, 
+                notifier:EventNotifier=None, 
+                broadcaster:Union[EventBroadcaster, str]=None):
         """
 
         Args:
@@ -30,7 +32,7 @@ class PubSubEndpoint:
         self.notifier = notifier if notifier is not None else WebSocketRpcEventNotifier()
         self.broadcaster = broadcaster if isinstance(broadcaster, EventBroadcaster) or broadcaster is None else EventBroadcaster(broadcaster, self.notifier)
         self.methods = methods_class(self.notifier) if methods_class is not None else RpcEventServerMethods(self.notifier)
-        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=self.on_disconnect)
+        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=[self.on_disconnect])
         self._id = self.notifier.gen_subscriber_id()
 
     async def publish(self, topics: Union[TopicList, Topic], data=None):
