@@ -1,3 +1,4 @@
+from fastapi_websocket_rpc.rpc_channel import RpcChannel
 from fastapi_websocket_pubsub.exceptions import PubSubClientInvalidStateException
 import functools
 import asyncio
@@ -13,19 +14,6 @@ from .event_notifier import Topic
 from .rpc_event_methods import RpcEventClientMethods
 
 logger = get_logger('PubSubClient')
-
-
-def apply_retry(func):
-    @functools.wraps(func)
-    async def wrapped_with_retries(self, *args, **kwargs):
-        if self._retry_config is False:
-            new_func = func
-        else:
-            retry_decorator = retry(**self._retry_config)
-            new_func = retry_decorator(func)
-        return await new_func(self, *args, **kwargs)
-    return wrapped_with_retries
-
 
 class PubSubClient:
     """
@@ -51,28 +39,42 @@ class PubSubClient:
         override on_connect() to add more subscription / registartion logic
     """
 
-    def __init__(self, topics: List[Topic] = [], callback=None, methods_class=None, retry_config=None, keep_alive_interval=0, **kwargs) -> None:
+    def __init__(self, topics: List[Topic] = [], 
+                callback=None, 
+                methods_class:RpcMethodsBase=None, 
+                retry_config=None, 
+                keep_alive:float=0, 
+                on_connect:List[Coroutine]=None, 
+                on_disconnect:List[Coroutine]=None, 
+                **kwargs) -> None:
         """
         Args:
             topics (List[Topic]): topics client should subscribe to.
             methods_class ([RpcMethodsBase], optional): RPC Methods exposed by client. Defaults to RpcEventClientMethods.
             retry_config (Dict, optional): Tenacity (https://tenacity.readthedocs.io/) retry kwargs. Defaults to  {'wait': wait.wait_random_exponential(max=45)}
                                            retry_config is used both for initial connection failures and reconnects upon connection loss
+            keep_alive(float): interval in seconds to send a keep-alive ping over the underlying RPC channel, Defaults to 0, which means keep alive is disabled.
+            on_connect (List[Coroutine]): callbacks on connection being established (each callback is called with the PubSub-client and the rpc-channel)
+                                          @note exceptions thrown in on_connect callbacks propagate to the client and will cause connection restart!
+            on_disconnect (List[Coroutine]): callbacks on connection termination (each callback is called with the rpc-channel)
         """
         # init our methods with access to the client object (i.e. self) so they can trigger our callbacks
         self._methods = methods_class(self) if methods_class is not None else RpcEventClientMethods(self)
-        self._topics = []  # these topics will not have an attached callback
+        # Subscription topics
+        self._topics = []  
+        # Subscription callbacks
         self._callbacks = {}
-        self._on_connect_callbacks = []
         self._ready_event = asyncio.Event()
         self._connect_kwargs = kwargs
         # Tenacity retry configuration
-        self._retry_config = retry_config if retry_config is not None else {
-            'wait': wait.wait_random_exponential(max=45)}
-        self._keep_alive_interval = keep_alive_interval
-        self._keep_alive_task = None
-        # The WebSocketRpcClient initialized in run - used to access the client from other asyncio tasks
-        self._rpc_client = None
+        self._retry_config = retry_config
+        # Keep alive config
+        self._keep_alive = keep_alive
+        # Core event handlers
+        self._on_connect = on_connect
+        self._on_disconnect = on_disconnect
+        # The RpcChannel initialized - used to access the client from other asyncio tasks
+        self._rpc_channel = None
         # register given topics
         for topic in topics:
             self.subscribe(topic, callback)
@@ -83,38 +85,47 @@ class PubSubClient:
     def wait_until_ready(self) -> Coroutine:
         return self._ready_event.wait()
 
-    @apply_retry
     async def run(self, uri, wait_on_reader=True):
         """
         runs the rpc client (async api).
         if you want to call from a synchronous program, use start_client().
         """
         logger.info("trying to connect", server_uri=uri)
-        async with WebSocketRpcClient(uri, self._methods, retry_config=self._retry_config, **self._connect_kwargs) as client:
+        async with WebSocketRpcClient(uri, self._methods,
+                                      retry_config=self._retry_config, 
+                                      keep_alive=self._keep_alive,
+                                      # Register core event callbacks
+                                      on_connect=[self._primary_on_connect],
+                                      on_disconnect=self._on_disconnect, 
+                                      **self._connect_kwargs) as client:
             try:
+                logger.info(f"connected to PubSub server", server_uri=client.uri)
                 # if we managed to connect
                 if client is not None:
-                    await self._on_connection(client)
-                    self._start_keep_alive(client)
-                    self._rpc_client = client
-                    self._ready_event.set()
                     if wait_on_reader:
+                        # Wait on the internal RPC task - keeping the client alive
                         await client.wait_on_reader()
+
             except ConnectionClosed:
                 logger.error("RPC connection lost")
-                # re-Raise so retry can reconnect us
                 raise
             except WebSocketException as err:
                 logger.info("RPC connection failed", error=err)
-                # re-Raise so retry can reconnect us
                 raise
             except Exception as err:
                 logger.critical("RPC Uncaught Error", error=err)
-                # re-Raise so retry can reconnect us
                 raise
-            finally:
-                client._read_task.cancel()
-                self._cancel_keep_alive()
+
+    async def _primary_on_connect(self, channel: RpcChannel):
+        # Store current channel for additional use by other methods
+        self._rpc_channel = channel
+        # subscribe to all the topics we have registered
+        await self._subscribe_stored_topics(channel)
+        self._ready_event.set()
+        # Now that PubSub us alive trigger sub subscribers
+        if isinstance(self._on_connect, list):
+            await asyncio.gather(*(callback(self, channel) for callback in self._on_connect))
+        
 
     def subscribe(self, topic: Topic, callback: Coroutine):
         """
@@ -151,23 +162,17 @@ class PubSubClient:
         Returns:
             bool: was the publish successful
         """
-        if self.is_ready() and self._rpc_client is not None:
-            return await self._rpc_client.channel.other.publish(topics=topics, data=data, sync=sync, notifier_id=notifier_id)
+        if self.is_ready() and self._rpc_channel is not None:
+            return await self._rpc_channel.other.publish(topics=topics, data=data, sync=sync, notifier_id=notifier_id)
         else:
             raise PubSubClientInvalidStateException("Client not connected")
 
-    def on_connect(self, callback: Coroutine):
-        self._on_connect_callbacks.append(callback)
-
-    async def _on_connection(self, client):
+    async def _subscribe_stored_topics(self, channel):
         """
-        Method called upon first connection to server
+        Communicate topics stored at self._topics to the PubSub Server
         """
-        logger.info(f"connected to server", server_uri=client.uri)
         if self._topics:
-            await client.channel.other.subscribe(topics=self._topics)
-        if self._on_connect_callbacks:
-            await asyncio.gather(*(callback() for callback in self._on_connect_callbacks))
+            await channel.other.subscribe(topics=self._topics)
 
     async def trigger_topic(self, topic: Topic, data=None):
         """
@@ -203,23 +208,3 @@ class PubSubClient:
         RPC notifications will still be handeled in the background
         """
         self.start_client(server_uri, loop, False)
-
-    async def _keep_alive(self, client):
-        while True:
-            await asyncio.sleep(self._keep_alive_interval)
-            logger.info("Pinging server")
-            await client.channel.other.ping()
-
-    def _cancel_keep_alive(self):
-        if self._keep_alive_task:
-            logger.info("Cancelling keep alive task")
-            self._keep_alive_task.cancel()
-            self._keep_alive_task = None
-
-    def _start_keep_alive(self, client):
-        self._cancel_keep_alive()
-        if self._keep_alive_interval <= 0:
-            return
-
-        logger.info("Starting keep alive task", interval=f"{self._keep_alive_interval} seconds")
-        self._keep_alive_task = asyncio.create_task(self._keep_alive(client))
