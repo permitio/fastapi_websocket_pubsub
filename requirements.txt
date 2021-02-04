@@ -1,3 +1,2 @@
 fastapi-websocket-rpc
 broadcaster==0.2.0
-asyncpg==0.21.0
