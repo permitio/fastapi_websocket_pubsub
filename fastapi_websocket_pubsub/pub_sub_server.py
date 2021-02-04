@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Coroutine, List, Union
 
 from fastapi import WebSocket
 from fastapi_websocket_rpc import WebsocketRPCEndpoint
@@ -16,8 +16,16 @@ class PubSubEndpoint:
 
     def __init__(self, methods_class=None, 
                 notifier:EventNotifier=None, 
-                broadcaster:Union[EventBroadcaster, str]=None):
+                broadcaster:Union[EventBroadcaster, str]=None,
+                on_connect:List[Coroutine]=None, 
+                on_disconnect:List[Coroutine]=None, ):
         """
+        The PubSub endpoint recives subscriptions from clients and publishes data back to them upon receiving relevant publications.
+            Publications (aka event notifications) can come from:
+                - Code in the same server calling this instance's '.publish()'
+                - Connected PubSubClients calling their own publish method (and piping into the servers via RPC)
+                - Other servers linked through a broadcaster channel such as Redis Pub/Sub, Kafka, or postgres listen/notify 
+                    (@see EventBroadcaster and of course https://pypi.org/project/broadcaster/)
 
         Args:
             methods_class (optional): a class deriving from RpcEventServerMethods providing a 'subscribe' rpc method
@@ -32,7 +40,9 @@ class PubSubEndpoint:
         self.notifier = notifier if notifier is not None else WebSocketRpcEventNotifier()
         self.broadcaster = broadcaster if isinstance(broadcaster, EventBroadcaster) or broadcaster is None else EventBroadcaster(broadcaster, self.notifier)
         self.methods = methods_class(self.notifier) if methods_class is not None else RpcEventServerMethods(self.notifier)
-        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=[self.on_disconnect])
+        if on_disconnect is None:
+            on_disconnect = []
+        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=[self.on_disconnect, *on_disconnect], on_connect=on_connect)
         self._id = self.notifier.gen_subscriber_id()
 
     async def publish(self, topics: Union[TopicList, Topic], data=None):
