@@ -17,4 +17,4 @@ async def on_steel(data):
 # Create a client and subscribe to topics
 client = PubSubClient(["guns", "germs"])
 client.subscribe("steel", on_steel)
-client.start_client(f"ws://localhost:{PORT}/ws/test-client1")
+client.start_client(f"ws://localhost:{PORT}/pubsub")

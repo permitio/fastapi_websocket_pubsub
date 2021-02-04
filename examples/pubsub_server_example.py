@@ -21,11 +21,11 @@ app.include_router(router)
 
 async def events():
     await asyncio.sleep(1)
-    await endpoint.notify(["guns", "germs"])
+    await endpoint.publish(["guns", "germs"])
     await asyncio.sleep(1)
-    await endpoint.notify(["germs"])
+    await endpoint.publish(["germs"])
     await asyncio.sleep(1)
-    await endpoint.notify(["steel"])
+    await endpoint.publish(["steel"])
 
 @app.get("/trigger")
 async def trigger_events():
