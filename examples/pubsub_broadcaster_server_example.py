@@ -1,8 +1,12 @@
 """
-To run this test.
- - 1. run this script for the server
- - 2. once the server is up, run notifier_client_test.py
- - 3. send get request to server on: 'http://localhost:8000/trigger'
+Multiple Servers linked via broadcaster example.
+
+To run this example. 
+-  0. Setup a broadcast medium and pass its configuration to the endpoint (e.g. postgres on 'postgres://localhost:5432/' )
+ - 1. run this script for the servers (as many instances as you'd like) - use the PORT env-variable to run them on different ports 
+ - 2. once the servers are up, run notifier_client_test.py and connect to one of them
+ - 3. send get request to one server on: '/trigger'
+ - 4. See that the client recives the event -no matter which server you connected it to, or which server got the initial trigger to publish
 """
 import sys
 import os
@@ -22,7 +26,7 @@ PORT = int(os.environ.get("PORT") or "8000")
 
 app = FastAPI()
 router = APIRouter()
-endpoint = PubSubEndpoint(broadcaster="postgres://localhost:5432/acalladb")
+endpoint = PubSubEndpoint(broadcaster="postgres://localhost:5432/")
 
 
 @router.websocket("/ws/{client_id}")
