@@ -42,13 +42,11 @@ def setup_server_rest_route(app, endpoint: PubSubEndpoint):
 
 def setup_server():
     app =  FastAPI()
-    router = APIRouter()
     # PubSub websocket endpoint
     endpoint = PubSubEndpoint()
-    endpoint.register_route(router, "/pubsub")
+    endpoint.register_route(app, "/pubsub")
     # Regular REST endpoint - that publishes to PubSub
-    setup_server_rest_route(app,endpoint)
-    app.include_router(router)
+    setup_server_rest_route(app, endpoint)
     uvicorn.run(app, port=PORT)
 
 
