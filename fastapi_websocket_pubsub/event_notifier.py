@@ -54,13 +54,21 @@ class EventNotifier:
         # Topics->subscribers->subscription mapping
         self._topics: Dict[Topic, Dict[SubscriberId, List[Subscription]]] = {}
         # Lock used to sync access to mapped subscriptions
-        self._lock = asyncio.Lock()
+        # Initialized JIT to be sure to grab the right asyncio-loop
+        self._lock: asyncio.Lock = None
 
     def gen_subscriber_id(self):
         return gen_uid()
 
     def gen_subscription_id(self):
         return gen_uid()
+
+    def _init_lock_if_needed(self):
+        """
+        Init lock once - on current loop
+        """
+        if self._lock is None:
+            self._lock = asyncio.Lock()
 
     async def subscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, ALL_TOPICS], callback: Callable) -> List[Subscription]:
         """
@@ -75,6 +83,7 @@ class EventNotifier:
             callback (Callable): the callback function to call upon a publish event
         """
         new_subscriptions = []
+        self._init_lock_if_needed()
         async with self._lock:
             if topics == ALL_TOPICS:
                 topics = [ALL_TOPICS]
