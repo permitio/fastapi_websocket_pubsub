@@ -2,6 +2,7 @@ from typing import Coroutine, List, Union
 
 from fastapi import WebSocket
 from fastapi_websocket_rpc import WebsocketRPCEndpoint
+from fastapi_websocket_rpc.rpc_channel import RpcChannel
 
 from .event_broadcaster import EventBroadcaster
 from .event_notifier import EventNotifier, Topic, TopicList
@@ -61,8 +62,8 @@ class PubSubEndpoint:
         """
         return self.publish()
 
-    async def on_disconnect(self, channel_id: str):
-        await self.notifier.unsubscribe(channel_id)
+    async def on_disconnect(self, channel: RpcChannel):
+        await self.notifier.unsubscribe(channel.id)
 
     async def main_loop(self, websocket: WebSocket, client_id: str = None, **kwargs):
         await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
