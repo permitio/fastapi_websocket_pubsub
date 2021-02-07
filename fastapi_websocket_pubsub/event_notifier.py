@@ -63,12 +63,14 @@ class EventNotifier:
     def gen_subscription_id(self):
         return gen_uid()
 
-    def _init_lock_if_needed(self):
+    def _get_subscribers_lock(self):
         """
         Init lock once - on current loop
         """
         if self._lock is None:
             self._lock = asyncio.Lock()
+        return self._lock
+       
 
     async def subscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, ALL_TOPICS], callback: Callable) -> List[Subscription]:
         """
@@ -83,8 +85,7 @@ class EventNotifier:
             callback (Callable): the callback function to call upon a publish event
         """
         new_subscriptions = []
-        self._init_lock_if_needed()
-        async with self._lock:
+        async with self._get_subscribers_lock():
             if topics == ALL_TOPICS:
                 topics = [ALL_TOPICS]
             for topic in topics:
@@ -98,8 +99,7 @@ class EventNotifier:
                                                 callback=callback)
                 subscriptions.append(new_subscription)
                 new_subscriptions.append(new_subscription)
-                logger.info("New subscription",
-                            subscription=new_subscription.dict())
+                logger.info(f"New subscription {new_subscription.dict()}")
             return new_subscriptions
 
     async def unsubscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, None] = None):
@@ -111,15 +111,14 @@ class EventNotifier:
             subscriber_id (SubscriberID): A UUID identifying the subscriber
             topics (Union[TopicList, None]): Topics to unsubscribe from
         """
-        async with self._lock:
+        async with self._get_subscribers_lock():
             # if no topics are given then unsubscribe from all topics
             if topics is None:
                 topics = self._topics
             for topic in topics:
                 subscribers = self._topics[topic]
                 if subscriber_id in subscribers:
-                    logger.info("Removing Subscription", topic=topic,
-                                subscriber_id=subscriber_id)
+                    logger.info(f"Removing Subscription of topic='{topic}' for subscriber={subscriber_id}")
                     del subscribers[subscriber_id]
 
     async def trigger_callback(self, data, topic: Topic, subscriber_id: SubscriberId, subscription: Subscription):
@@ -138,20 +137,22 @@ class EventNotifier:
             override_topic (bool, optional): Should the event/subscription topic be updated to match the given topic. Defaults to False.
         """
         for subscriber_id, subscriptions in subscribers.items():
-            # Don't notify the notifier
-            if subscriber_id != notifier_id:
-                logger.info("calling subscription callbacks",
-                            subscriber_id=subscriber_id,
-                            topic=topic, subscriptions=subscriptions)
-                for subscription in subscriptions:
-                    if override_topic:
-                        # Report actual topic instead of ALL_TOPICS (or whatever is saved in the subscription)
-                        event = subscription.copy()
-                        event.topic = topic
-                    else:
-                        event = subscription
-                    # call callback with subscription-info and provided data
-                    await self.trigger_callback(data, topic, subscriber_id, event)
+            try:
+                # Don't notify the notifier
+                if subscriber_id != notifier_id:
+                    logger.info(f"calling subscription callbacks for sub_id={subscriber_id} with topic={topic}")
+                    for subscription in subscriptions:
+                        if override_topic:
+                            # Report actual topic instead of ALL_TOPICS (or whatever is saved in the subscription)
+                            event = subscription.copy()
+                            event.topic = topic
+                        else:
+                            event = subscription
+                        # call callback with subscription-info and provided data
+                        await self.trigger_callback(data, topic, subscriber_id, event)
+            except:
+                logger.exception(f"Failed to notify subscriber sub_id={subscriber_id} with topic={topic}")
+            
 
     async def notify(self, topics: Union[TopicList, Topic], data=None, notifier_id=None):
         """
@@ -169,12 +170,16 @@ class EventNotifier:
         # get ALL_TOPICS subscribers
         subscribers_to_all = self._topics.get(ALL_TOPICS, {})
 
+        callbacks = []
         # TODO improve with reader/writer lock pattern - so multiple notifications can happen at once
-        async with self._lock:
+        async with self._get_subscribers_lock():
             for topic in topics:
                 subscribers = self._topics.get(topic, {})
                 # handle direct topic subscribers
-                await self.callback_subscribers(subscribers, topic, data, notifier_id)
+                callbacks.append(self.callback_subscribers(subscribers, topic, data, notifier_id))
                 # handle ALL_TOPICS subscribers
                 # Use actual topic instead of ALL_TOPICS
-                await self.callback_subscribers(subscribers_to_all, topic, data, notifier_id, override_topic=True)
+                callbacks.append(self.callback_subscribers(subscribers_to_all, topic, data, notifier_id, override_topic=True))
+        # call the subscribers outside of the lock - if they disconnect in the middle of the handling 
+        # the with statement may fail  -- (issue with interrupts https://bugs.python.org/issue29988) 
+        await asyncio.gather(*callbacks)
