@@ -21,11 +21,14 @@ app.include_router(router)
 
 async def events():
     await asyncio.sleep(1)
+    # Publish multiple topics (without data)
     await endpoint.publish(["guns", "germs"])
     await asyncio.sleep(1)
+    # Publish single topic (without data)
     await endpoint.publish(["germs"])
     await asyncio.sleep(1)
-    await endpoint.publish(["steel"])
+    # Publish single topic (with data)
+    await endpoint.publish(["steel"], data={"author": "Jared Diamond"})
 
 @app.get("/trigger")
 async def trigger_events():
