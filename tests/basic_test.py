@@ -63,38 +63,38 @@ async def test_subscribe_http_trigger(server):
     # finish trigger
     finish = asyncio.Event()
     # Create a client and subscribe to topics
-    client = PubSubClient()
-    async def on_event(data):
-        assert data == DATA
-        finish.set()
-    # subscribe for the event
-    client.subscribe(EVENT_TOPIC, on_event)
-    # start listentining
-    client.start_client(uri)
-    # wait for the client to be ready to receive events 
-    await client.wait_until_ready()
-    # trigger the server via an HTTP route
-    requests.get(trigger_url)
-    # wait for finish trigger
-    await asyncio.wait_for(finish.wait(),5)
+    async with PubSubClient() as client:
+        async def on_event(data, topic):
+            assert data == DATA
+            finish.set()
+        # subscribe for the event
+        client.subscribe(EVENT_TOPIC, on_event)
+        # start listentining
+        client.start_client(uri)
+        # wait for the client to be ready to receive events 
+        await client.wait_until_ready()
+        # trigger the server via an HTTP route
+        requests.get(trigger_url)
+        # wait for finish trigger
+        await asyncio.wait_for(finish.wait(),5)
 
 @pytest.mark.asyncio
 async def test_pub_sub(server):
     # finish trigger
     finish = asyncio.Event()
     # Create a client and subscribe to topics
-    client = PubSubClient()
-    async def on_event(data):
-        assert data == DATA
-        finish.set()
-    # subscribe for the event
-    client.subscribe(EVENT_TOPIC, on_event)
-    # start listentining
-    client.start_client(uri)
-    # wait for the client to be ready to receive events 
-    await client.wait_until_ready()
-    # publish events (with sync=False toa void deadlocks waiting on the publish to ourselves)
-    published = await client.publish([EVENT_TOPIC], data=DATA, sync=False, notifier_id=gen_uid())
-    assert published.result == True
-    # wait for finish trigger
-    await asyncio.wait_for(finish.wait(),5)
+    async with PubSubClient() as client:
+        async def on_event(data, topic):
+            assert data == DATA
+            finish.set()
+        # subscribe for the event
+        client.subscribe(EVENT_TOPIC, on_event)
+        # start listentining
+        client.start_client(uri)
+        # wait for the client to be ready to receive events 
+        await client.wait_until_ready()
+        # publish events (with sync=False toa void deadlocks waiting on the publish to ourselves)
+        published = await client.publish([EVENT_TOPIC], data=DATA, sync=False, notifier_id=gen_uid())
+        assert published.result == True
+        # wait for finish trigger
+        await asyncio.wait_for(finish.wait(),5)

@@ -87,18 +87,19 @@ async def test_pub_sub_multi_client(server, pub_client):
     # finish trigger
     finish = asyncio.Event()
     # Create a client and subscribe to topics
-    client = PubSubClient()
-    async def on_event(data):
-        assert data == DATA
-        finish.set()
-    # subscribe for the event
-    logger.info("Subscribing for events")
-    client.subscribe(EVENT_TOPIC, on_event)
-    # start listentining
-    client.start_client(uri)
-    await client.wait_until_ready()
-    # Let the other client know we're ready
-    logger.info("First client is ready")
-    CLIENT_START_SYNC.set()
-    # wait for finish trigger
-    await asyncio.wait_for(finish.wait(),10)
+    async with PubSubClient() as client:
+        async def on_event(data, topic):
+            assert data == DATA
+            assert topic == EVENT_TOPIC
+            finish.set()
+        # subscribe for the event
+        logger.info("Subscribing for events")
+        client.subscribe(EVENT_TOPIC, on_event)
+        # start listentining
+        client.start_client(uri)
+        await client.wait_until_ready()
+        # Let the other client know we're ready
+        logger.info("First client is ready")
+        CLIENT_START_SYNC.set()
+        # wait for finish trigger
+        await asyncio.wait_for(finish.wait(),10)
