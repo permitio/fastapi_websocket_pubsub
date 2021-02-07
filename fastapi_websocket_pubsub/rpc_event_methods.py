@@ -9,7 +9,7 @@ class RpcEventServerMethods(RpcMethodsBase):
     def __init__(self, event_notifier: EventNotifier):
         super().__init__()
         self.event_notifier = event_notifier
-        self.logger = get_logger('RpcServer')
+        self.logger = get_logger('PubSubServer')
 
     async def subscribe(self, topics: TopicList = []) -> bool:
         """
@@ -22,8 +22,8 @@ class RpcEventServerMethods(RpcMethodsBase):
                 # remove the actual function
                 sub = subscription.copy(exclude={"callback"})
                 self.logger.info("Notifying other side",
-                                 subscription=subscription,
-                                 data=data, channel_id=self.channel.id)
+                                 subscription,
+                                 data, self.channel.id)
                 await self.channel.other.notify(subscription=sub, data=data)
 
             # We'll use our channel id as our subscriber id
@@ -31,8 +31,7 @@ class RpcEventServerMethods(RpcMethodsBase):
             await self.event_notifier.subscribe(sub_id, topics, callback)
             return True
         except Exception as err:
-            self.logger.error("Failed to subscribe to RPC events notifier",
-                              err=err, topics=topics)
+            self.logger.exception("Failed to subscribe to RPC events notifier", topics)
             return False
 
     async def publish(self, topics: TopicList = [], data=None, sync=True, notifier_id=None) -> bool:
@@ -59,8 +58,7 @@ class RpcEventServerMethods(RpcMethodsBase):
                 asyncio.create_task(promise)
             return True
         except Exception as err:
-            self.logger.error("Failed to publish to events notifier",
-                              err=err, topics=topics)
+            self.logger.error("Failed to publish to events notifier",topics)
             return False
 
     async def ping(self) -> str:
@@ -72,7 +70,7 @@ class RpcEventClientMethods(RpcMethodsBase):
     def __init__(self, client):
         super().__init__()
         self.client = client
-        self.logger = get_logger('RpcClient')
+        self.logger = get_logger('PubSubClient')
 
     async def notify(self, subscription=None, data=None):
         self.logger.info("Received notification of event",
