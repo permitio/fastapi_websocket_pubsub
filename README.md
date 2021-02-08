@@ -52,7 +52,7 @@ FastAPI + WebSockets + PubSub ==  💪 ❤️
             endpoint.publish(["my_event_topic"], data=["my", "data", 1])
         ```    
     - Across server instances (using [broadcaster](https://pypi.org/project/broadcaster/) and a backend medium (e.g. Redis, Kafka, ...))
-        - No matter which server a client connected to - it will get the messages it subscribes too
+        - No matter which server a client connects to - it will get the messages it subscribes to
         ```python
         app = FastAPI() 
         endpoint = PubSubEndpoint(broadcaster="postgres://localhost:5432/")
