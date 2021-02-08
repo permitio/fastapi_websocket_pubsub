@@ -4,7 +4,6 @@ import functools
 import asyncio
 from typing import Coroutine, List
 from tenacity import retry, wait
-from websockets.exceptions import WebSocketException, ConnectionClosed
 
 from .logger import get_logger
 from .event_notifier import Topic, TopicList
@@ -33,6 +32,12 @@ class PubSubClient:
 
         When you are done registering callbacks (once you do, you cannot subscribe to more topics) call:
             client.start_client("ws://localhost:8000/pubsub")
+
+        Another more compact option - using async with -
+            async with PubSubClient(["guns","germs"],both_events_coroutine, server_uir="ws://localhost:8000/pubsub") as client:
+                client.wait_on_
+
+
 
     Usage as publisher:
             client = PubSubClient()
@@ -110,13 +115,14 @@ class PubSubClient:
         """
         self._disconnect_signal.set()
         await self._run_task
+        self._run_task = None
         
     async def run(self, uri, wait_on_reader=True):
         """
         runs the rpc client (async api).
         if you want to call from a synchronous program, use start_client().
         """
-        logger.info("trying to connect", server_uri=uri)
+        logger.info(f"Trying to connect to Pub/Sub server - {uri}")
         async with WebSocketRpcClient(uri, self._methods,
                                       retry_config=self._retry_config,
                                       keep_alive=self._keep_alive,
@@ -124,26 +130,15 @@ class PubSubClient:
                                       on_connect=[self._primary_on_connect],
                                       on_disconnect=self._on_disconnect,
                                       **self._connect_kwargs) as client:
-            try:
-                logger.info(f"connected to PubSub server", server_uri=client.uri)
-                # if we managed to connect
-                if client is not None:
-                    if wait_on_reader:
-                        # Wait on the internal RPC task or until we ar asked to terminate - keeping the client alive meanwhile
-                        for task in asyncio.as_completed([client.wait_on_reader(), self._disconnect_signal.wait()]):
-                            await task
-                            return
-                        client.cancel_tasks()
-
-            except ConnectionClosed:
-                logger.info("RPC connection lost")
-                raise
-            except WebSocketException as err:
-                logger.info("RPC connection failed")
-                raise
-            except Exception as err:
-                logger.exception("RPC Uncaught Error")
-                raise
+            logger.info(f"Connected to PubSub server {uri}")
+            # if we managed to connect
+            if client is not None:
+                if wait_on_reader:
+                    # Wait on the internal RPC task or until we ar asked to terminate - keeping the client alive meanwhile
+                    wait_on_reader_task = client.wait_on_reader()
+                    for task in asyncio.as_completed([wait_on_reader_task, self._disconnect_signal.wait()]):
+                        await task
+                        return
 
     async def _primary_on_connect(self, channel: RpcChannel):
         # Store current channel for additional use by other methods
@@ -222,7 +217,7 @@ class PubSubClient:
 
     def start_client(self, server_uri, loop: asyncio.AbstractEventLoop = None, wait_on_reader=True):
         """
-        Start the client and wait [if wait_on_reader=True] on the RPC-reader task
+        Start the client (spinning out self.run as an asyncio task)
 
         Args:
             server_uri (str): uri to server pubsub-endpoint (e.g. 'http://localhost/pubsub')
