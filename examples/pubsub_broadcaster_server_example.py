@@ -28,9 +28,8 @@ app = FastAPI()
 router = APIRouter()
 endpoint = PubSubEndpoint(broadcaster="postgres://localhost:5432/")
 
-
-@router.websocket("/ws/{client_id}")
-async def websocket_rpc_endpoint(websocket: WebSocket, client_id: str):
+@router.websocket("/pubsub")
+async def websocket_rpc_endpoint(websocket: WebSocket):
     async with endpoint.broadcaster:
         await endpoint.main_loop(websocket)
 
