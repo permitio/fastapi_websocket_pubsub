@@ -1,4 +1,5 @@
 import asyncio
+import copy
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from fastapi_websocket_rpc.utils import gen_uid
@@ -175,11 +176,11 @@ class EventNotifier:
         async with self._get_subscribers_lock():
             for topic in topics:
                 subscribers = self._topics.get(topic, {})
-                # handle direct topic subscribers
-                callbacks.append(self.callback_subscribers(subscribers, topic, data, notifier_id))
-                # handle ALL_TOPICS subscribers
+                # handle direct topic subscribers (work on copy to avoid changes after we got the callbacks running)
+                callbacks.append(self.callback_subscribers(copy.copy(subscribers), topic, data, notifier_id))
+                # handle ALL_TOPICS subscribers (work on copy to avoid changes after we got the callbacks running)
                 # Use actual topic instead of ALL_TOPICS
-                callbacks.append(self.callback_subscribers(subscribers_to_all, topic, data, notifier_id, override_topic=True))
-        # call the subscribers outside of the lock - if they disconnect in the middle of the handling 
-        # the with statement may fail  -- (issue with interrupts https://bugs.python.org/issue29988) 
+                callbacks.append(self.callback_subscribers(copy.copy(subscribers_to_all), topic, data, notifier_id, override_topic=True))
+        # call the subscribers outside of the lock - if they disconnect in the middle of the handling the with statement may fail
+        # -- (issue with interrupts https://bugs.python.org/issue29988) 
         await asyncio.gather(*callbacks)
