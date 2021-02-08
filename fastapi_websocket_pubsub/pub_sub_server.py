@@ -37,6 +37,9 @@ class PubSubEndpoint:
 
             broadcaster (optional): Instance of EventBroadcaster, a URL string to init EventBroadcaster, or None to not use
                                     The broadcaster allows several EventRpcEndpoints across multiple processes / services to share incoming notifications 
+
+            on_connect (List[Coroutine]): callbacks on connection being established (each callback is called with the channel)
+            on_disconnect (List[Coroutine]): callbacks on connection termination (each callback is called with the channel)                                    
         """
         self.notifier = notifier if notifier is not None else WebSocketRpcEventNotifier()
         self.broadcaster = broadcaster if isinstance(broadcaster, EventBroadcaster) or broadcaster is None else EventBroadcaster(broadcaster, self.notifier)
@@ -56,11 +59,8 @@ class PubSubEndpoint:
         """
         await self.notifier.notify(topics, data, notifier_id=self._id)
 
-    def notify(self, topics: Union[TopicList, Topic], data=None):
-        """ 
-        Same as self.publish() 
-        """
-        return self.publish()
+    # canonical name (backward compatability)
+    notify = publish
 
     async def on_disconnect(self, channel: RpcChannel):
         await self.notifier.unsubscribe(channel.id)
