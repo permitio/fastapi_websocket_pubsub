@@ -1,12 +1,12 @@
 import asyncio
 from typing import Any, Union
 from pydantic.main import BaseModel
-from .event_notifier import EventNotifier, Subscription, TopicList
+from .event_notifier import EventNotifier, Subscription, TopicList, ALL_TOPICS
 from broadcaster import Broadcast
 
-from ..logger import get_logger
-from ..utils import gen_uid
-from fastapi_websocket_rpc.pubsub import event_notifier
+from .logger import get_logger
+from fastapi_websocket_rpc.utils import gen_uid
+
 
 logger = get_logger('EventBroadcaster')
 
@@ -41,7 +41,7 @@ class EventBroadcaster:
     """
 
     def __init__(self, broadcast_url: str, notifier: EventNotifier, channel="EventNotifier",
-                broadcast_type=None, is_publish_only=False) -> None:
+                 broadcast_type=None, is_publish_only=False) -> None:
         """
 
         Args:
@@ -76,7 +76,8 @@ class EventBroadcaster:
             subscription (Subscription): the subscription that got triggered
             data: the event data
         """
-        logger.info("Broadcasting incoming event", topic=subscription.topic, notifier_id=self._id)
+        logger.info("Broadcasting incoming event",
+                    topic=subscription.topic, notifier_id=self._id)
         note = BroadcastNotification(notifier_id=self._id, topics=[
                                      subscription.topic], data=data)
         # Publish event to broadcast
@@ -92,11 +93,12 @@ class EventBroadcaster:
                     # Start task listening on incoming broadcasts
                     self.start_reader_task()
 
-                logger.info("Subscribing to ALL TOPICS", reason="first client connected")
+                logger.info("Subscribing to ALL TOPICS",
+                            reason="first client connected")
                 # Subscribe to internal events form our own event notifier and broadcast them
                 await self._notifier.subscribe(self._id,
-                                            event_notifier.ALL_TOPICS,
-                                            self.__broadcast_notifications__)
+                                               ALL_TOPICS,
+                                               self.__broadcast_notifications__)
             self._num_connections += 1
 
     async def __aexit__(self, exc_type, exc, tb):
@@ -105,7 +107,8 @@ class EventBroadcaster:
             if self._num_connections == 0:
                 try:
                     # Unsubscribe from internal events
-                    logger.info("Unsubscribing from ALL TOPICS", reason="last client disconnected")
+                    logger.info("Unsubscribing from ALL TOPICS",
+                                reason="last client disconnected")
                     await self._notifier.unsubscribe(self._id)
 
                     # Cancel task reading broadcast subscriptions
@@ -127,7 +130,7 @@ class EventBroadcaster:
         if self._subscription_task is not None:
             # we already started a task for this worker process
             logger.info("No need for listen task",
-                description="already started broadcast listen task for this notifier")
+                        description="already started broadcast listen task for this notifier")
             return
         # Trigger the task
         logger.info("Spawning broadcast listen task")
@@ -147,13 +150,14 @@ class EventBroadcaster:
             async with broadcast_reader.subscribe(channel=self._channel) as subscriber:
                 async for event in subscriber:
                     try:
-                        notification = BroadcastNotification.parse_raw(event.message)
+                        notification = BroadcastNotification.parse_raw(
+                            event.message)
                         # Avoid re-publishing our own broadcasts
                         if notification.notifier_id != self._id:
                             logger.info("Handling incoming broadcast event",
                                         topics=notification.topics,
                                         src=notification.notifier_id)
                             # Notify subscribers of message received from broadcast
-                            await self._notifier.notify(notification.topics, notification.data, notifier_id = self._id)
+                            await self._notifier.notify(notification.topics, notification.data, notifier_id=self._id)
                     except:
                         logger.exception("Failed handling incoming broadcast")

@@ -11,21 +11,24 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.routing import APIRouter
 
-from fastapi_websocket_rpc.pubsub import EventRpcEndpoint
+from fastapi_websocket_pubsub import PubSubEndpoint
 
 app =  FastAPI()
 router = APIRouter()
-endpoint = EventRpcEndpoint()
-endpoint.register_routes(router)
+endpoint = PubSubEndpoint()
+endpoint.register_route(router)
 app.include_router(router)
 
 async def events():
     await asyncio.sleep(1)
-    await endpoint.notify(["guns", "germs"])
+    # Publish multiple topics (without data)
+    await endpoint.publish(["guns", "germs"])
     await asyncio.sleep(1)
-    await endpoint.notify(["germs"])
+    # Publish single topic (without data)
+    await endpoint.publish(["germs"])
     await asyncio.sleep(1)
-    await endpoint.notify(["steel"])
+    # Publish single topic (with data)
+    await endpoint.publish(["steel"], data={"author": "Jared Diamond"})
 
 @app.get("/trigger")
 async def trigger_events():
