@@ -23,8 +23,9 @@ pip install fastapi_websocket_pubsub
 
 
 ## Intro
-The classic pub/sub pattern made easily accessible and scalable over the web and across your cloud in realtime.
-FastAPI PubSub + WebSockets PubSub ==  💪 ❤️
+The classic pub/sub pattern made easily accessible and scalable over the web and across your cloud in realtime; while enjoying the benefits of FastAPI (e.g. dependency injection).
+
+FastAPI + WebSockets + PubSub ==  💪 ❤️
 
 
 - Subscribe
@@ -47,21 +48,27 @@ FastAPI PubSub + WebSockets PubSub ==  💪 ❤️
         ```
     - From client to client (through the servers)
         ```python 
-        client = PubSubClient()
-        client.start_client(uri)
-        endpoint.publish(["my_event_topic"], data=["my", "data", 1])
+        async with PubSubClient(server_uri="ws://localhost/pubsub") as client:
+            endpoint.publish(["my_event_topic"], data=["my", "data", 1])
         ```    
-    - Across server instances (using [broadcaster](https://pypi.org/project/broadcaster/) and a backend medium (e.g. Redis, Kafka, ...)
+    - Across server instances (using [broadcaster](https://pypi.org/project/broadcaster/) and a backend medium (e.g. Redis, Kafka, ...))
         - No matter which server a client connected to - it will get the messages it subscribes too
         ```python
         app = FastAPI() 
         endpoint = PubSubEndpoint(broadcaster="postgres://localhost:5432/")
-        endpoint.register_route(app, "/pubsub")
+        
+        @app.websocket("/pubsub")
+        async def websocket_rpc_endpoint(websocket: WebSocket):
+            async with endpoint.broadcaster:
+                await endpoint.main_loop(websocket)
         ```
+        see [examples/pubsub_broadcaster_server_example.py](examples/pubsub_broadcaster_server_example.py) for full usage example 
 
 
 
 ## Usage example (server publishing following HTTP trigger):
+In the code below, a client connects to the server and subscribes to a topic named "triggered".
+Aside from PubSub websocket, the server also exposes a regular http route, which triggers publication of the event. 
 
 ### Server:
 ```python
@@ -88,24 +95,29 @@ from fastapi_websocket_pubsub import PubSubClient
 # Callback to be called upon event being published on server
 async def on_trigger(data):
     print("Trigger URL was accessed")
-# Subscribe for the event 
-client.subscribe("triggered", on_event)
-client.start_client(f"ws://localhost/pubsub")
+
+async with PubSubClient(server_uri="ws://localhost/pubsub") as client:
+    # Subscribe for the event 
+    client.subscribe("triggered", on_event)
+
 ```
 
-See the [examples](/examples) and [tests](/tests) folders for more server and client examples.
+## More Examples
+- See the [examples](/examples) and [tests](/tests) folders for more server and client examples.
+- See [fastapi-websocket-rpc depends example](https://github.com/authorizon/fastapi_websocket_rpc/blob/master/tests/fast_api_depends_test.py) to see how to combine with FASTAPI dependency injections 
 
 ## What can I do with this?
 The combination of Websockets, and bi-directional Pub/Sub is  ideal to create realtime data propagation solution at scale over the web. 
- - Update mechanism (All outgoing websockets)
+ - Update mechanism
  - Remote control mechanism
  - Data processing
+ - Distributed computing
  - Realtime communications over the web   
 
 
 ## Foundations:
 
-- Based on [fastapi-websocket-rpc](https://github.com/acallasec/fastapi_websocket_rpc) for a robust realtime bidirectional channel
+- Based on [fastapi-websocket-rpc](https://github.com/authorizon/fastapi_websocket_rpc) for a robust realtime bidirectional channel
 
 - Based on [broadcaster](https://pypi.org/project/broadcaster/) for syncing server instances
 
@@ -113,7 +125,7 @@ The combination of Websockets, and bi-directional Pub/Sub is  ideal to create re
 
     - Based on [FAST-API](https://github.com/tiangolo/fastapi): enjoy all the benefits of a full ASGI platform, including Async-io and dependency injections (for example to authenticate connections)
 
-    - Based on [Pydnatic](https://pydantic-docs.helpmanual.io/): easily serialize structured data as part of RPC requests and responses (see 'tests/basic_rpc_test.py :: test_structured_response' for an example)
+    - Based on [Pydnatic](https://pydantic-docs.helpmanual.io/): easily serialize structured data as part of RPC requests and responses. Simply Pass Pydantic data models as PubSub published data to have it available as part of an event. 
 
 - Client :
     - Based on [Tenacity](https://tenacity.readthedocs.io/en/latest/index.html): allowing configurable retries to keep to connection alive
