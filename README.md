@@ -25,7 +25,7 @@ pip install fastapi_websocket_pubsub
 ## Intro
 The classic pub/sub pattern made easily accessible and scalable over the web and across your cloud in realtime; while enjoying the benefits of FastAPI (e.g. dependency injection).
 
-FastAPI + WebSockets + PubSub ==  💪 ❤️
+FastAPI + WebSockets + PubSub ==  ⚡💪 ❤️
 
 
 - Subscribe
