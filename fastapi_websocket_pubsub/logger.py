@@ -1,14 +1,4 @@
-import logging
-import sys
-import os
-
+from fastapi_websocket_rpc.logger import get_logger as rpc_get_logger
 
 def get_logger(name):
-    if os.environ.get("WS_RPC_LOGGING") == "loguru":
-        from loguru import logger
-    else:    
-        logger = logging.getLogger("fastapi.ws_rpc")
-    return logger
-
-
-
+    return rpc_get_logger(f"pubsub.{name}")

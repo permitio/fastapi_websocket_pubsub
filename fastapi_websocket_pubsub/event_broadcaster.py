@@ -77,7 +77,7 @@ class EventBroadcaster:
             data: the event data
         """
         logger.info("Broadcasting incoming event",
-                    topic=subscription.topic, notifier_id=self._id)
+                    {'topic':subscription.topic, 'notifier_id':self._id})
         note = BroadcastNotification(notifier_id=self._id, topics=[
                                      subscription.topic], data=data)
         # Publish event to broadcast
@@ -93,8 +93,7 @@ class EventBroadcaster:
                     # Start task listening on incoming broadcasts
                     self.start_reader_task()
 
-                logger.info("Subscribing to ALL TOPICS",
-                            reason="first client connected")
+                logger.info("Subscribing to ALL TOPICS, first client connected")
                 # Subscribe to internal events form our own event notifier and broadcast them
                 await self._notifier.subscribe(self._id,
                                                ALL_TOPICS,
@@ -107,8 +106,7 @@ class EventBroadcaster:
             if self._num_connections == 0:
                 try:
                     # Unsubscribe from internal events
-                    logger.info("Unsubscribing from ALL TOPICS",
-                                reason="last client disconnected")
+                    logger.info("Unsubscribing from ALL TOPICS, last client disconnected")
                     await self._notifier.unsubscribe(self._id)
 
                     # Cancel task reading broadcast subscriptions
@@ -129,8 +127,7 @@ class EventBroadcaster:
         # Make sure a task wasn't started already
         if self._subscription_task is not None:
             # we already started a task for this worker process
-            logger.info("No need for listen task",
-                        description="already started broadcast listen task for this notifier")
+            logger.info("No need for listen task, already started broadcast listen task for this notifier")
             return
         # Trigger the task
         logger.info("Spawning broadcast listen task")
@@ -155,8 +152,8 @@ class EventBroadcaster:
                         # Avoid re-publishing our own broadcasts
                         if notification.notifier_id != self._id:
                             logger.info("Handling incoming broadcast event",
-                                        topics=notification.topics,
-                                        src=notification.notifier_id)
+                                        {'topics':notification.topics,
+                                        'src':notification.notifier_id})
                             # Notify subscribers of message received from broadcast
                             await self._notifier.notify(notification.topics, notification.data, notifier_id=self._id)
                     except:

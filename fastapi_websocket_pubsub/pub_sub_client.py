@@ -213,7 +213,7 @@ class PubSubClient:
                 if callback is not None:
                     await callback(data=data, topic=topic)
             except:
-                logger.exception("Failed to trigger a pub/sub callback", callback, data, topic,)
+                logger.exception("Failed to trigger a pub/sub callback", {'data':data, 'topic': topic})
 
     def start_client(self, server_uri, loop: asyncio.AbstractEventLoop = None, wait_on_reader=True):
         """

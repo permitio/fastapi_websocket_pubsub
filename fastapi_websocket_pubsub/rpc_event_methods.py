@@ -22,8 +22,8 @@ class RpcEventServerMethods(RpcMethodsBase):
                 # remove the actual function
                 sub = subscription.copy(exclude={"callback"})
                 self.logger.info("Notifying other side",
-                                 subscription,
-                                 data, self.channel.id)
+                                 {"subscription":subscription,
+                                 "data":data, "channel_id": self.channel.id})
                 await self.channel.other.notify(subscription=sub, data=data)
 
             # We'll use our channel id as our subscriber id
@@ -74,5 +74,5 @@ class RpcEventClientMethods(RpcMethodsBase):
 
     async def notify(self, subscription=None, data=None):
         self.logger.info("Received notification of event",
-                         subscription=subscription, data=data)
+                         {'subscription':subscription, 'data':data})
         await self.client.trigger_topic(topic=subscription["topic"], data=data)
