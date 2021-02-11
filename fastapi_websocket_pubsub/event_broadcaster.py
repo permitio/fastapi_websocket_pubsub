@@ -127,7 +127,7 @@ class EventBroadcaster:
         # Make sure a task wasn't started already
         if self._subscription_task is not None:
             # we already started a task for this worker process
-            logger.info("No need for listen task, already started broadcast listen task for this notifier")
+            logger.debug("No need for listen task, already started broadcast listen task for this notifier")
             return
         # Trigger the task
         logger.info("Spawning broadcast listen task")
@@ -151,7 +151,7 @@ class EventBroadcaster:
                             event.message)
                         # Avoid re-publishing our own broadcasts
                         if notification.notifier_id != self._id:
-                            logger.info("Handling incoming broadcast event",
+                            logger.debug("Handling incoming broadcast event",
                                         {'topics':notification.topics,
                                         'src':notification.notifier_id})
                             # Notify subscribers of message received from broadcast
