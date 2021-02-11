@@ -114,7 +114,8 @@ class PubSubClient:
         Force the internal client to disconnect, and wait for it to do so
         """
         self._disconnect_signal.set()
-        await self._run_task
+        if self._run_task is not None:
+            await self._run_task
         self._run_task = None
         
     async def run(self, uri, wait_on_reader=True):
