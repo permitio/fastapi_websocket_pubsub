@@ -76,7 +76,6 @@ class PubSubClient:
         self._topics = []
         # Subscription callbacks
         self._callbacks = {}
-        self._ready_event = asyncio.Event()
         self._connect_kwargs = kwargs
         # Tenacity retry configuration
         self._retry_config = retry_config
@@ -87,7 +86,10 @@ class PubSubClient:
         self._on_disconnect = on_disconnect if on_disconnect is not None else []
         # internal asyncio tasks
         self._run_task: asyncio.Task = None
-        self._disconnect_signal = asyncio.Event()
+        # event to force termination
+        self._disconnect_signal:asyncio.Event = None
+        # event to indicate the connection is ready for use 
+        self._ready_event:asyncio.Event = None
         # The RpcChannel initialized - used to access the client from other asyncio tasks
         self._rpc_channel = None
         # register given topics
@@ -95,11 +97,20 @@ class PubSubClient:
             self.subscribe(topic, callback)
 
     def is_ready(self) -> bool:
-        return self._ready_event.is_set()
+        if self._ready_event is not None:
+            return self._ready_event.is_set()
+        else:
+            return False
 
     def wait_until_ready(self) -> Coroutine:
         return self._ready_event.wait()
 
+    def _init_event_objects(self):
+        """
+        Init asyncio events. This should be done in the correct event loop (And so better avoided at __init__)
+        """
+        self._ready_event = asyncio.Event()
+        self._disconnect_signal = asyncio.Event()
 
     async def __aenter__(self):
         if self._server_uri is not None:
@@ -124,6 +135,8 @@ class PubSubClient:
         if you want to call from a synchronous program, use start_client().
         """
         logger.info(f"Trying to connect to Pub/Sub server - {uri}")
+        # init internal events 
+        self._init_event_objects()
         async with WebSocketRpcClient(uri, self._methods,
                                       retry_config=self._retry_config,
                                       keep_alive=self._keep_alive,
@@ -131,15 +144,19 @@ class PubSubClient:
                                       on_connect=[self._primary_on_connect],
                                       on_disconnect=self._on_disconnect,
                                       **self._connect_kwargs) as client:
-            logger.info(f"Connected to PubSub server {uri}")
-            # if we managed to connect
-            if client is not None:
-                if wait_on_reader:
-                    # Wait on the internal RPC task or until we ar asked to terminate - keeping the client alive meanwhile
-                    wait_on_reader_task = client.wait_on_reader()
-                    for task in asyncio.as_completed([wait_on_reader_task, self._disconnect_signal.wait()]):
-                        await task
-                        return
+            try:
+                logger.info(f"Connected to PubSub server {uri}")
+                # if we managed to connect
+                if client is not None:
+                    if wait_on_reader:
+                        # Wait on the internal RPC task or until we ar asked to terminate - keeping the client alive meanwhile
+                        wait_on_reader_task = client.wait_on_reader()
+                        for task in asyncio.as_completed([wait_on_reader_task, self._disconnect_signal.wait()]):
+                            await task
+                            return
+            except:
+                # log unhandled exceptions (which will be swallowed by the with statemen otherwise )
+                logger.exception(f"Unknown PubSub error")
 
     async def _primary_on_connect(self, channel: RpcChannel):
         # Store current channel for additional use by other methods
@@ -162,7 +179,7 @@ class PubSubClient:
                            'hello' or a complex path 'a/b/c/d' 
             callback (Coroutine): the function to call upon relevant event publishing
         """
-        # TODO: add support for post concnetion subscriptions
+        # TODO: add support for post connection subscriptions
         if not self.is_ready():
             self._topics.append(topic)
             self._callbacks[topic] = callback
