@@ -102,15 +102,35 @@ class PubSubClient:
         else:
             return False
 
-    def wait_until_ready(self) -> Coroutine:
-        return self._ready_event.wait()
+    def wait_until_ready(self, create_event=True) -> Coroutine:
+        """Return a wait coroutine for the internal readiness event
+        Args:
+            create_event (bool, optional): Should an event be created if missing 
+            (@Note- avoid creating an event from another loop). Defaults to True.
+
+        Raises:
+            PubSubClientInvalidStateException: if has no event to wait on
+
+        Returns:
+            Coroutine: waiting function on internal event
+        """
+        if self._ready_event is None:
+            if create_event:
+                self._ready_event = asyncio.Event()
+                return self._ready_event.wait()
+            else:
+                raise PubSubClientInvalidStateException("Cannot wait on readiness prior to client starting or without creating an event")
+        else:    
+            return self._ready_event.wait()
 
     def _init_event_objects(self):
         """
         Init asyncio events. This should be done in the correct event loop (And so better avoided at __init__)
         """
-        self._ready_event = asyncio.Event()
-        self._disconnect_signal = asyncio.Event()
+        if self._ready_event is None:
+            self._ready_event = asyncio.Event()
+        if self._disconnect_signal is None:
+            self._disconnect_signal = asyncio.Event()
 
     async def __aenter__(self):
         if self._server_uri is not None:
@@ -124,6 +144,8 @@ class PubSubClient:
         """
         Force the internal client to disconnect, and wait for it to do so
         """
+        if self._disconnect_signal is None:
+            self._disconnect_signal = asyncio.Event()
         self._disconnect_signal.set()
         if self._run_task is not None:
             await self._run_task
