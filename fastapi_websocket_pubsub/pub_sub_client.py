@@ -168,14 +168,7 @@ class PubSubClient:
                                       **self._connect_kwargs) as client:
             try:
                 logger.info(f"Connected to PubSub server {uri}")
-                # if we managed to connect
-                if client is not None:
-                    if wait_on_reader:
-                        # Wait on the internal RPC task or until we ar asked to terminate - keeping the client alive meanwhile
-                        wait_on_reader_task = client.wait_on_reader()
-                        for task in asyncio.as_completed([wait_on_reader_task, self._disconnect_signal.wait()]):
-                            await task
-                            return
+                await self._disconnect_signal.wait()
             except:
                 # log unhandled exceptions (which will be swallowed by the with statemen otherwise )
                 logger.exception(f"Unknown PubSub error")
