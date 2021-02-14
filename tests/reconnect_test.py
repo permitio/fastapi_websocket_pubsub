@@ -42,13 +42,13 @@ def setup_server(disconnect_delay=0):
             # Immediate death
             if disconnect_delay == 0:
                 logger.info("Disconnect once")        
-                await channel.socket.websocket.close()
+                await channel.socket.close()
             # Delayed death
             else: 
                 async def disconn():
                     await asyncio.sleep(disconnect_delay)
                     logger.info("Disconnect once")    
-                    await channel.socket.websocket.close()
+                    await channel.socket.close()
                 asyncio.create_task(disconn())
             counter.value = 1
         
@@ -103,7 +103,7 @@ async def test_immediate_server_disconnect(server):
 @pytest.mark.asyncio
 async def test_delayed_server_disconnect(delayed_death_server):
     """
-    Test reconnecting when a server hangups on connect
+    Test reconnecting when a server hangups AFTER connect
     """
     # finish trigger
     finish = asyncio.Event()
