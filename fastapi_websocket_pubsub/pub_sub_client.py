@@ -186,11 +186,13 @@ class PubSubClient:
                                 break
                     except websockets.exceptions.WebSocketException as err:
                         logger.info(f"Connection failed with - {err}. -- Trying to reconnect.")
+                    except asyncio.exceptions.CancelledError:
+                        logger.info(f"Connection was actively canceled -- Trying to reconnect.")                        
                     except:
                         # log unhandled exceptions (which will be swallowed by the with statement otherwise )
                         logger.exception(f"Unknown PubSub error -- Trying to reconnect.")
             except:
-                logger.exception(f"Unknown PubSub error -- Trying to reconnect.")
+                logger.exception(f"Unknown PubSub init error -- Trying to reconnect.")
                 
 
     async def _primary_on_connect(self, channel: RpcChannel):
