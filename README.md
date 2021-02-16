@@ -5,7 +5,7 @@
     <img src="https://github.com/authorizon/fastapi_websocket_pubsub/workflows/Tests/badge.svg" alt="Tests">
 </a>
 
-<a href="https://pypi.org/project/fastapi-websocket-pub/" target="_blank">
+<a href="https://pypi.org/project/fastapi-websocket-pubsub/" target="_blank">
     <img src="https://img.shields.io/pypi/v/fastapi-websocket-pubsub?color=%2331C654&label=PyPi%20package" alt="Package">
 </a>
 
