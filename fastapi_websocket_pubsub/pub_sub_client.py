@@ -51,7 +51,7 @@ class PubSubClient:
 
     """
 
-    def __init__(self, topics: List[Topic] = [],
+    def __init__(self, topics: List[Topic] = None,
                  callback=None,
                  methods_class: RpcMethodsBase = None,
                  retry_config=None,
@@ -62,7 +62,7 @@ class PubSubClient:
                  **kwargs) -> None:
         """
         Args:
-            topics (List[Topic]): topics client should subscribe to.
+            topics (List[Topic]): topics client should subscribe to, Defaults to None.
             methods_class ([RpcMethodsBase], optional): RPC Methods exposed by client. Defaults to RpcEventClientMethods.
             retry_config (Dict, optional): Tenacity (https://tenacity.readthedocs.io/) retry kwargs. Defaults to  {'wait': wait.wait_random_exponential(max=45)}
                                            retry_config is used both for initial connection failures and reconnects upon connection loss
@@ -95,9 +95,10 @@ class PubSubClient:
         self._ready_event:asyncio.Event = None
         # The RpcChannel initialized - used to access the client from other asyncio tasks
         self._rpc_channel = None
-        # register given topics
-        for topic in topics:
-            self.subscribe(topic, callback)
+        # register given topics (if we got any)
+        if isinstance(topics,list):
+            for topic in topics:
+                self.subscribe(topic, callback)
 
     def is_ready(self) -> bool:
         if self._ready_event is not None:
