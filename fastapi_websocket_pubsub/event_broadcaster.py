@@ -66,6 +66,7 @@ class EventBroadcaster:
         self._notifier = notifier
         self._is_publish_only = is_publish_only
         self._lock = asyncio.Lock()
+        self._publish_lock = asyncio.Lock()
         self._num_connections = 0
 
     async def __broadcast_notifications__(self, subscription: Subscription, data):
@@ -81,8 +82,9 @@ class EventBroadcaster:
         note = BroadcastNotification(notifier_id=self._id, topics=[
                                      subscription.topic], data=data)
         # Publish event to broadcast
-        async with self._broadcast:
-            await self._broadcast.publish(self._channel, note.json())
+        async with self._publish_lock:
+            async with self._broadcast:
+                await self._broadcast.publish(self._channel, note.json())
 
     async def __aenter__(self):
         async with self._lock:
