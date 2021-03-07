@@ -7,7 +7,7 @@ from fastapi_websocket_rpc.rpc_channel import RpcChannelClosedException
 logger.logging_config.set_mode(logger.LoggingModes.UVICORN)
 
 # Add parent path to use local src as package for tests
-sys.path.append(os.path.abspath(os.path.join(os.path.basename(__file__), os.path.pardir)))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 
 import asyncio
 from multiprocessing import Process, Value
