@@ -5,7 +5,7 @@ from fastapi_websocket_rpc import WebsocketRPCEndpoint
 from fastapi_websocket_rpc.rpc_channel import RpcChannel
 
 from .event_broadcaster import EventBroadcaster
-from .event_notifier import EventNotifier, Topic, TopicList
+from .event_notifier import ALL_TOPICS, EventCallback, EventNotifier, Subscription, Topic, TopicList
 from .rpc_event_methods import RpcEventServerMethods
 from .websocket_rpc_event_notifier import WebSocketRpcEventNotifier
 
@@ -47,7 +47,13 @@ class PubSubEndpoint:
         if on_disconnect is None:
             on_disconnect = []
         self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=[self.on_disconnect, *on_disconnect], on_connect=on_connect)
+        # server id used to publish events for clients
         self._id = self.notifier.gen_subscriber_id()
+        # Separate if for the server to subscribe to its own events
+        self._subscriber_id:str = self.notifier.gen_subscriber_id()
+
+    async def subscribe(self, topics: Union[TopicList, ALL_TOPICS], callback: EventCallback) -> List[Subscription]:
+        return await self.notifier.subscribe(self._subscriber_id, topics, callback)
 
     async def publish(self, topics: Union[TopicList, Topic], data=None):
         """
