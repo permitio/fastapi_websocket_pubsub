@@ -32,6 +32,9 @@ class Subscription(BaseModel):
     callback: Callable = None
     notifier_id: Optional[str] = None
 
+# Publish event callback signature
+def EventCallback(subscription: Subscription, data: Any):
+    pass
 
 class EventNotifier:
     """
@@ -73,7 +76,7 @@ class EventNotifier:
         return self._lock
        
 
-    async def subscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, ALL_TOPICS], callback: Callable) -> List[Subscription]:
+    async def subscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, ALL_TOPICS], callback: EventCallback) -> List[Subscription]:
         """
         Subscribe to a set of topics.
         Once a notification (i.e. publish) of a topic is received the provided callback function will be called (with topic and data)
