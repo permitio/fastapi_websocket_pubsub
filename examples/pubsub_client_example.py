@@ -26,10 +26,11 @@ async def main():
     async def on_steel(data, topic):
         print("running callback steel!")
         print("Got data", data)
-        await client.disconnect()
+        asyncio.create_task(client.disconnect())
 
     client.subscribe("steel", on_steel)
     client.start_client(f"ws://localhost:{PORT}/pubsub")
+    await client.wait_until_done()
 
 
 asyncio.run(main())
