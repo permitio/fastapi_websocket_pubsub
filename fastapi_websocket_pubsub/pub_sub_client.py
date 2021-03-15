@@ -169,13 +169,14 @@ class PubSubClient:
         while not self._disconnect_signal.is_set():
             try:
                 logger.info(f"Trying to connect to Pub/Sub server - {uri}")
-                async with WebSocketRpcClient(uri, self._methods,
+                client = WebSocketRpcClient(uri, self._methods,
                                             retry_config=self._retry_config,
                                             keep_alive=self._keep_alive,
                                             # Register core event callbacks
                                             on_connect=[self._primary_on_connect],
                                             on_disconnect=self._on_disconnect,
-                                            **self._connect_kwargs) as client:
+                                            **self._connect_kwargs)
+                async with client:
                     try:
                         logger.info(f"Connected to PubSub server {uri}")
                         if wait_on_reader:
@@ -188,7 +189,10 @@ class PubSubClient:
                     except websockets.exceptions.WebSocketException as err:
                         logger.info(f"Connection failed with - {err}. -- Trying to reconnect.")
                     except asyncio.exceptions.CancelledError:
-                        logger.info(f"Connection was actively canceled -- Trying to reconnect.")                        
+                        logger.info(f"Connection was actively canceled -- won't try to reconnect.")
+                        # clean exit (no retrying)
+                        # better support for keyboard interrupt 
+                        return                         
                     except:
                         # log unhandled exceptions (which will be swallowed by the with statement otherwise )
                         logger.exception(f"Unknown PubSub error -- Trying to reconnect.")
