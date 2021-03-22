@@ -18,6 +18,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi_websocket_rpc.logger import get_logger
 from fastapi_websocket_rpc.utils import gen_uid
 from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient
+from fastapi_websocket_pubsub.event_notifier import ALL_TOPICS
 
 logger = get_logger("Test")
 
@@ -89,6 +90,30 @@ async def test_pub_sub(server):
             finish.set()
         # subscribe for the event
         client.subscribe(EVENT_TOPIC, on_event)
+        # start listentining
+        client.start_client(uri)
+        # wait for the client to be ready to receive events 
+        await client.wait_until_ready()
+        # publish events (with sync=False toa void deadlocks waiting on the publish to ourselves)
+        published = await client.publish([EVENT_TOPIC], data=DATA, sync=False, notifier_id=gen_uid())
+        assert published.result == True
+        # wait for finish trigger
+        await asyncio.wait_for(finish.wait(),5)
+
+@pytest.mark.asyncio
+async def test_pub_sub_with_all_topics(server):
+    """
+    Check client gets event when subscribing via ALL_TOPICS
+    """
+    # finish trigger
+    finish = asyncio.Event()
+    # Create a client and subscribe to topics
+    async with PubSubClient() as client:
+        async def on_event(data, topic):
+            assert data == DATA
+            finish.set()
+        # subscribe for the event
+        client.subscribe(ALL_TOPICS, on_event)
         # start listentining
         client.start_client(uri)
         # wait for the client to be ready to receive events 

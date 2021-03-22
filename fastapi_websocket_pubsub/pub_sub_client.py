@@ -1,12 +1,13 @@
+from types import coroutine
 from fastapi_websocket_rpc.rpc_channel import RpcChannel, OnDisconnectCallback, OnConnectCallback
 from fastapi_websocket_pubsub.exceptions import PubSubClientInvalidStateException
 
 import websockets
 import asyncio
-from typing import Coroutine, List
+from typing import Coroutine, Dict, List
 
 from .logger import get_logger
-from .event_notifier import Topic, TopicList
+from .event_notifier import ALL_TOPICS, Topic, TopicList
 from fastapi_websocket_rpc import RpcMethodsBase
 from fastapi_websocket_rpc import WebSocketRpcClient
 from .event_notifier import Topic
@@ -76,9 +77,9 @@ class PubSubClient:
         # init our methods with access to the client object (i.e. self) so they can trigger our callbacks
         self._methods = methods_class(self) if methods_class is not None else RpcEventClientMethods(self)
         # Subscription topics
-        self._topics = []
+        self._topics = set()
         # Subscription callbacks
-        self._callbacks = {}
+        self._callbacks:Dict[Topic,List[Coroutine]] = {}
         self._connect_kwargs = kwargs
         # Tenacity retry configuration
         self._retry_config = retry_config
@@ -218,13 +219,17 @@ class PubSubClient:
         Args:
             topic (Topic): the identifier of the event topic with wish to be called 
                            upon events being published - can be a simple string e.g. 
-                           'hello' or a complex path 'a/b/c/d' 
+                           'hello' or a complex path 'a/b/c/d' . 
+                           Note: You can use ALL_TOPICS (event_notifier.ALL_TOPICS) to subscribe to all topics
             callback (Coroutine): the function to call upon relevant event publishing
         """
         # TODO: add support for post connection subscriptions
         if not self.is_ready():
-            self._topics.append(topic)
-            self._callbacks[topic] = callback
+            self._topics.add(topic)
+            # init to empty list if no entry
+            callbacks = self._callbacks[topic] = self._callbacks.get(topic,[])
+            # add callback to callbacks list of the topic
+            callbacks.append(callback)
         else:
             raise PubSubClientInvalidStateException("Client already connected and subscribed")
 
@@ -256,7 +261,7 @@ class PubSubClient:
         Communicate topics stored at self._topics to the PubSub Server
         """
         if self._topics:
-            await channel.other.subscribe(topics=self._topics)
+            await channel.other.subscribe(topics=list(self._topics))
 
     async def trigger_topic(self, topic: Topic, data=None):
         """
@@ -266,14 +271,16 @@ class PubSubClient:
             topic (Topic)
             data ([Any], optional)
         """
-        callback = None
-        if topic in self._callbacks:
-            try:
-                callback = self._callbacks.get(topic,None)
-                if callback is not None:
-                    await callback(data=data, topic=topic)
-            except:
-                logger.exception("Failed to trigger a pub/sub callback", {'data':data, 'topic': topic})
+        try:
+            # get callbacks for topic
+            callbacks = self._callbacks.get(topic,[])
+            # get callbacks for ALL_TOPICS 
+            callbacks.extend(self._callbacks.get(ALL_TOPICS,[]))
+            # Gather coroutine futures to wait together
+            futures = [callback(data=data, topic=topic) for callback in callbacks]
+            await asyncio.gather(*futures)
+        except:
+            logger.exception("Failed to trigger a pub/sub callback", {'data':data, 'topic': topic})
 
     def start_client(self, server_uri, loop: asyncio.AbstractEventLoop = None, wait_on_reader=True):
         """
