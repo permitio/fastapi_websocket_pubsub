@@ -1,4 +1,6 @@
-<img src="https://i.ibb.co/njT8Nq1/pubsub.png" alt="pubsub" border="0">
+<p align="center">
+<img src="https://i.ibb.co/njT8Nq1/pubsub.png" width="50%" alt="pubsub" border="0">
+</p>
 
 #
 
