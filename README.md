@@ -1,5 +1,8 @@
+<img src="https://i.ibb.co/njT8Nq1/pubsub.png" alt="pubsub" border="0">
 
-# ⚡ FASTAPI Websocket Pub/Sub 🗞️
+#
+
+# ⚡🗞️ FASTAPI Websocket Pub/Sub 
 
 <a href="https://github.com/authorizon/fastapi_websocket_pubsub/actions?query=workflow%3ATests" target="_blank">
     <img src="https://github.com/authorizon/fastapi_websocket_pubsub/workflows/Tests/badge.svg" alt="Tests">
