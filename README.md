@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://i.ibb.co/njT8Nq1/pubsub.png" width="50%" alt="pubsub" border="0">
+<img src="https://i.ibb.co/NV6wmy8/pubsub.png" width="55%" alt="pubsub" border="0">
 </p>
 
 #
