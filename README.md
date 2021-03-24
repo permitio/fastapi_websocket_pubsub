@@ -4,7 +4,7 @@
 
 #
 
-# ⚡🗞️ FASTAPI Websocket Pub/Sub 
+# ⚡🗞️ FastAPI Websocket Pub/Sub 
 
 <a href="https://github.com/authorizon/fastapi_websocket_pubsub/actions?query=workflow%3ATests" target="_blank">
     <img src="https://github.com/authorizon/fastapi_websocket_pubsub/workflows/Tests/badge.svg" alt="Tests">
