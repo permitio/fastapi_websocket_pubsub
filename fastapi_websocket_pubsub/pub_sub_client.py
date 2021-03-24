@@ -197,6 +197,9 @@ class PubSubClient:
                     except:
                         # log unhandled exceptions (which will be swallowed by the with statement otherwise )
                         logger.exception(f"Unknown PubSub error -- Trying to reconnect.")
+            except websockets.exceptions.InvalidStatusCode as err:
+                logger.exception(f"Connection failed with unexpected status code - {err}.")
+                raise
             except:
                 logger.exception(f"Unknown PubSub init error -- Trying to reconnect.")
                 
