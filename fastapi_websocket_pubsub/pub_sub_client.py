@@ -190,13 +190,16 @@ class PubSubClient:
                     except websockets.exceptions.WebSocketException as err:
                         logger.info(f"Connection failed with - {err}. -- Trying to reconnect.")
                     except asyncio.exceptions.CancelledError:
-                        logger.info(f"Connection was actively canceled -- won't try to reconnect.")
+                        logger.info(f"Connection was actively canceled -- Won't try to reconnect.")
                         # clean exit (no retrying)
                         # better support for keyboard interrupt 
                         return                         
                     except:
                         # log unhandled exceptions (which will be swallowed by the with statement otherwise )
                         logger.exception(f"Unknown PubSub error -- Trying to reconnect.")
+            except websockets.exceptions.InvalidStatusCode as err:
+                logger.exception(f"Connection failed with an invalid status code - {err.status_code} -- Won't try to reconnect.")
+                raise
             except:
                 logger.exception(f"Unknown PubSub init error -- Trying to reconnect.")
                 

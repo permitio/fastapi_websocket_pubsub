@@ -11,7 +11,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='fastapi_websocket_pubsub',
-    version='0.1.15',
+    version='0.1.16',
     author='Or Weis',
     author_email="or@authorizon.com",
     description="A fast and durable PubSub channel over Websockets (using fastapi-websockets-rpc).",
@@ -25,7 +25,7 @@ setup(
         "Operating System :: OS Independent",
         "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
         "Topic :: Internet :: WWW/HTTP :: WSGI"
-    ],    
+    ],
     python_requires='>=3.7',
     install_requires=get_requirements(),
 )
