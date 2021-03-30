@@ -13,6 +13,9 @@
 <a href="https://pypi.org/project/fastapi-websocket-pubsub/" target="_blank">
     <img src="https://img.shields.io/pypi/v/fastapi-websocket-pubsub?color=%2331C654&label=PyPi%20package" alt="Package">
 </a>
+<a href="https://pepy.tech/project/fastapi-websocket-pubsub" target="_blank">
+    <img src="https://static.pepy.tech/personalized-badge/fastapi-websocket-pubsub?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads" alt="Downloads">
+</a>
 
 
 A fast and durable Pub/Sub channel over Websockets.
