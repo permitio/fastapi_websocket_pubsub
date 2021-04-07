@@ -1,5 +1,6 @@
 import asyncio
 from typing import Any, Union
+from asyncio.exceptions import InvalidStateError
 from pydantic.main import BaseModel
 from .event_notifier import EventNotifier, Subscription, TopicList, ALL_TOPICS
 from broadcaster import Broadcast
@@ -29,6 +30,75 @@ class BroadcasterAlreadyStarted(EventBroadcasterException):
     pass
 
 
+class EventBroadcasterContextManger:
+    """
+    Manages the context for the EventBroadcaster
+    Friend-like class of EventBroadcaster (accessing "protected" members )
+    """
+
+    def __init__(self, event_broadcaster: "EventBroadcaster", listen: bool = True, share: bool = True) -> None:
+        """
+        Provide a context manager for an EventBroadcaster, managing if it listens to events coming from the broadcaster 
+        and if it subscribes to the internal notifier to share its events with the broadcaster
+
+        Args:
+            event_broadcaster (EventBroadcaster): the broadcaster we manage the context for.
+            share (bool, optional): Should we share events with the broadcaster. Defaults to True.
+            listen (bool, optional): Should we listen for incoming events from the broadcaster. Defaults to True.
+        """
+        self._event_broadcaster = event_broadcaster
+        self._share: bool = share
+        self._listen: bool = listen
+        self._lock = asyncio.Lock()
+        # used to track creation / removal of the single shared reader task
+        self._listen_count: int = 0
+        self._share_count: int = 0
+
+    async def __aenter__(self):
+        async with self._lock:
+            if self._listen:
+                self._listen_count += 1
+                if self._listen_count == 1:
+                    # We have our first listener start the read-task for it (And all those who'd follow)
+                    logger.info("Listening for incoming events from broadcaster (first listener started)")
+                    # Start task listening on incoming broadcasts
+                    self._event_broadcaster.start_reader_task()
+
+            if self._share:
+                self._share_count += 1
+                if self._share_count == 1:
+                    # We have our first publisher
+                    # Init the broadcast used for publishing (reading has its own)
+                    self._event_broadcaster._acquire_publishing_broadcast()                
+                    logger.info("Subscribing to ALL TOPICS, to share with broadcast channel")
+                    # Subscribe to internal events form our own event notifier and broadcast them
+                    await self._event_broadcaster._subscribe_to_all_topics()
+
+    async def __aexit__(self, exc_type, exc, tb):
+        async with self._lock:
+            try:
+                if self._listen:
+                    self._listen_count -= 1
+                    # if this was last listener - we can stop the reading task
+                    if self._listen_count == 0:
+                        # Cancel task reading broadcast subscriptions
+                        if self._subscription_task is not None:
+                            logger.info("Cancelling broadcast listen task")
+                            self._subscription_task.cancel()
+                            self._subscription_task = None
+
+                if self._share:
+                    self._share_count -= 1     
+                    # if this was last sharer - we can stop subscribing to internal events - we aren't sharing anymore
+                    if self._share_count == 0:
+                        # Unsubscribe from internal events
+                        logger.info("Unsubscribing from ALL TOPICS")
+                        await self._event_broadcaster._unsubscribe_from_topics()
+
+            except:
+                logger.exception("Failed to exit EventBroadcaster context")
+
+
 class EventBroadcaster:
     """
     Bridge EventNotifier to work across processes and machines by sharing their events through a broadcasting channel
@@ -36,7 +106,8 @@ class EventBroadcaster:
     Usage:
     uri = "postgres://localhost:5432/db_name" #postgres example (also supports REDIS, Kafka, ...)
     # start litsening for broadcast publications notifying the internal event-notifier, and subscribing to the internal notifier, broadcasting its notes
-    async with EventBroadcaster(uri, notifier) as broadcaster:
+    broadcaster = EventBroadcaster(uri, notifier):
+    async with broadcaster.get_context():
         <Your Code>
     """
 
@@ -65,9 +136,9 @@ class EventBroadcaster:
         # The internal events notifier
         self._notifier = notifier
         self._is_publish_only = is_publish_only
-        self._lock = asyncio.Lock()
         self._publish_lock = asyncio.Lock()
-        self._num_connections = 0
+        self._context_manager = None
+
 
     async def __broadcast_notifications__(self, subscription: Subscription, data):
         """
@@ -78,7 +149,7 @@ class EventBroadcaster:
             data: the event data
         """
         logger.info("Broadcasting incoming event",
-                    {'topic':subscription.topic, 'notifier_id':self._id})
+                    {'topic': subscription.topic, 'notifier_id': self._id})
         note = BroadcastNotification(notifier_id=self._id, topics=[
                                      subscription.topic], data=data)
         # Publish event to broadcast
@@ -86,38 +157,31 @@ class EventBroadcaster:
             async with self._broadcast:
                 await self._broadcast.publish(self._channel, note.json())
 
-    async def __aenter__(self):
-        async with self._lock:
-            # Init the broadcast used for publishing (reading has its own)
-            self._broadcast = self._broadcast_type(self._broadcast_url)
-            if self._num_connections == 0:
-                if not self._is_publish_only:
-                    # Start task listening on incoming broadcasts
-                    self.start_reader_task()
+    def _acquire_publishing_broadcast(self):
+        self._broadcast = self._broadcast_type(self._broadcast_url)
 
-                logger.info("Subscribing to ALL TOPICS, first client connected")
-                # Subscribe to internal events form our own event notifier and broadcast them
-                await self._notifier.subscribe(self._id,
-                                               ALL_TOPICS,
-                                               self.__broadcast_notifications__)
-            self._num_connections += 1
+    async def _subscribe_to_all_topics(self):
+        return await self._notifier.subscribe(self._id,
+                                              ALL_TOPICS,
+                                              self.__broadcast_notifications__)
+
+    async def _unsubscribe_from_topics(self):
+        return await self._notifier.unsubscribe(self._id)
+
+    def get_context(self, listen=True, share=True):
+        return EventBroadcasterContextManger(self, listen=listen, share=share )
+                                    
+    async def __aenter__(self):
+        """
+        Convince caller (also backward compaltability)
+        """
+        if self._context_manager is None:
+            self._context_manager = self.get_context()
+        self._context_manager.__aenter__()
+
 
     async def __aexit__(self, exc_type, exc, tb):
-        async with self._lock:
-            self._num_connections -= 1
-            if self._num_connections == 0:
-                try:
-                    # Unsubscribe from internal events
-                    logger.info("Unsubscribing from ALL TOPICS, last client disconnected")
-                    await self._notifier.unsubscribe(self._id)
-
-                    # Cancel task reading broadcast subscriptions
-                    if self._subscription_task is not None:
-                        logger.info("Cancelling broadcast listen task")
-                        self._subscription_task.cancel()
-                        self._subscription_task = None
-                except:
-                    logger.exception("Failed to exit EventBroadcaster context")
+        self.get_context().__aexit__(exc_type, exc, tb)
 
     def start_reader_task(self):
         """Spawn a task reading incoming broadcasts and posting them to the intreal notifier
@@ -154,8 +218,8 @@ class EventBroadcaster:
                         # Avoid re-publishing our own broadcasts
                         if notification.notifier_id != self._id:
                             logger.debug("Handling incoming broadcast event",
-                                        {'topics':notification.topics,
-                                        'src':notification.notifier_id})
+                                         {'topics': notification.topics,
+                                          'src': notification.notifier_id})
                             # Notify subscribers of message received from broadcast
                             await self._notifier.notify(notification.topics, notification.data, notifier_id=self._id)
                     except:
