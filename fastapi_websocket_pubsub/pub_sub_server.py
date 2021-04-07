@@ -61,9 +61,16 @@ class PubSubEndpoint:
 
         Args:
             topics (Union[TopicList, Topic]): topics to publish to relevant subscribers
-            data ([type], optional): Event data to be passed to each subscriber. Defaults to None.
+            data (Any, optional): Event data to be passed to each subscriber. Defaults to None.
         """
-        await self.notifier.notify(topics, data, notifier_id=self._id)
+        # if we have a broadcaster make sure we share with it (no matter where this call comes from)
+        # sharing here means - the broadcaster listens in to the notifier as well
+        if self.broadcaster is not None:
+            async with self.broadcaster.get_context(listen=False, share=True):
+                await self.notifier.notify(topics, data, notifier_id=self._id)
+        # otherwise just notify
+        else:
+            await self.notifier.notify(topics, data, notifier_id=self._id)
 
     # canonical name (backward compatability)
     notify = publish
