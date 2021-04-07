@@ -56,7 +56,7 @@ class EventBroadcasterContextManger:
                 self._event_broadcaster._listen_count += 1
                 if self._event_broadcaster._listen_count == 1:
                     # We have our first listener start the read-task for it (And all those who'd follow)
-                    logger.info("Listening for incoming events from broadcaster (first listener started)")
+                    logger.info("Listening for incoming events from broadcast channel (first listener started)")
                     # Start task listening on incoming broadcasts
                     self._event_broadcaster.start_reader_task()
 
@@ -66,7 +66,7 @@ class EventBroadcasterContextManger:
                     # We have our first publisher
                     # Init the broadcast used for sharing (reading has its own)
                     self._event_broadcaster._acquire_publishing_broadcast()                
-                    logger.info("Subscribing to ALL TOPICS, to share with broadcast channel")
+                    logger.info("Subscribing to ALL TOPICS, and sharing messages with broadcast channel")
                     # Subscribe to internal events form our own event notifier and broadcast them
                     await self._event_broadcaster._subscribe_to_all_topics()
 
@@ -181,7 +181,7 @@ class EventBroadcaster:
 
 
     async def __aexit__(self, exc_type, exc, tb):
-        self.get_context().__aexit__(exc_type, exc, tb)
+        self._context_manager.__aexit__(exc_type, exc, tb)
 
     def start_reader_task(self):
         """Spawn a task reading incoming broadcasts and posting them to the intreal notifier
