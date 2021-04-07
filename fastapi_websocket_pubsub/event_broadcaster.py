@@ -29,7 +29,7 @@ class BroadcasterAlreadyStarted(EventBroadcasterException):
     pass
 
 
-class EventBroadcasterContextManger:
+class EventBroadcasterContextManager:
     """
     Manages the context for the EventBroadcaster
     Friend-like class of EventBroadcaster (accessing "protected" members )
@@ -170,7 +170,7 @@ class EventBroadcaster:
         return await self._notifier.unsubscribe(self._id)
 
     def get_context(self, listen=True, share=True):
-        return EventBroadcasterContextManger(self, listen=listen, share=share )
+        return EventBroadcasterContextManager(self, listen=listen, share=share )
                                     
     async def __aenter__(self):
         """
