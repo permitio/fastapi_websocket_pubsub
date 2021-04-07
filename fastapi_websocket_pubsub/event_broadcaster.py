@@ -79,10 +79,10 @@ class EventBroadcasterContextManager:
                     # if this was last listener - we can stop the reading task
                     if self._event_broadcaster._listen_count == 0:
                         # Cancel task reading broadcast subscriptions
-                        if self._subscription_task is not None:
+                        if self._event_broadcaster._subscription_task is not None:
                             logger.info("Cancelling broadcast listen task")
-                            self._subscription_task.cancel()
-                            self._subscription_task = None
+                            self._event_broadcaster._subscription_task.cancel()
+                            self._event_broadcaster._subscription_task = None
 
                 if self._share:
                     self._event_broadcaster._share_count -= 1     
