@@ -170,7 +170,23 @@ class EventBroadcaster:
         return await self._notifier.unsubscribe(self._id)
 
     def get_context(self, listen=True, share=True):
-        return EventBroadcasterContextManager(self, listen=listen, share=share )
+        """
+        Create a new context manager you can call 'async with' on, configuring the broadcaster for listening, sharing, or both.
+
+        Args:
+            listen (bool, optional): Should we listen for events incoming from the broadcast channel. Defaults to True.
+            share (bool, optional): Should we share events with the broadcast channel. Defaults to True.
+
+        Returns:
+            EventBroadcasterContextManager: the context 
+        """
+        return EventBroadcasterContextManager(self, listen=listen, share=share)
+
+    def get_listening_context(self):
+        return EventBroadcasterContextManager(self, listen=True, share=False)
+                                  
+    def get_sharing_context(self):
+        return EventBroadcasterContextManager(self, listen=False, share=True)
                                     
     async def __aenter__(self):
         """
