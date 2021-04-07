@@ -50,25 +50,22 @@ class EventBroadcasterContextManger:
         self._share: bool = share
         self._listen: bool = listen
         self._lock = asyncio.Lock()
-        # used to track creation / removal of the single shared reader task
-        self._listen_count: int = 0
-        self._share_count: int = 0
 
     async def __aenter__(self):
         async with self._lock:
             if self._listen:
-                self._listen_count += 1
-                if self._listen_count == 1:
+                self._event_broadcaster._listen_count += 1
+                if self._event_broadcaster._listen_count == 1:
                     # We have our first listener start the read-task for it (And all those who'd follow)
                     logger.info("Listening for incoming events from broadcaster (first listener started)")
                     # Start task listening on incoming broadcasts
                     self._event_broadcaster.start_reader_task()
 
             if self._share:
-                self._share_count += 1
-                if self._share_count == 1:
+                self._event_broadcaster._share_count += 1
+                if self._event_broadcaster._share_count == 1:
                     # We have our first publisher
-                    # Init the broadcast used for publishing (reading has its own)
+                    # Init the broadcast used for sharing (reading has its own)
                     self._event_broadcaster._acquire_publishing_broadcast()                
                     logger.info("Subscribing to ALL TOPICS, to share with broadcast channel")
                     # Subscribe to internal events form our own event notifier and broadcast them
@@ -78,9 +75,9 @@ class EventBroadcasterContextManger:
         async with self._lock:
             try:
                 if self._listen:
-                    self._listen_count -= 1
+                    self._event_broadcaster._listen_count -= 1
                     # if this was last listener - we can stop the reading task
-                    if self._listen_count == 0:
+                    if self._event_broadcaster._listen_count == 0:
                         # Cancel task reading broadcast subscriptions
                         if self._subscription_task is not None:
                             logger.info("Cancelling broadcast listen task")
@@ -88,9 +85,9 @@ class EventBroadcasterContextManger:
                             self._subscription_task = None
 
                 if self._share:
-                    self._share_count -= 1     
+                    self._event_broadcaster._share_count -= 1     
                     # if this was last sharer - we can stop subscribing to internal events - we aren't sharing anymore
-                    if self._share_count == 0:
+                    if self._event_broadcaster._share_count == 0:
                         # Unsubscribe from internal events
                         logger.info("Unsubscribing from ALL TOPICS")
                         await self._event_broadcaster._unsubscribe_from_topics()
@@ -120,7 +117,7 @@ class EventBroadcaster:
             notifier (EventNotifier): the event notifier managing our internal events - which will be bridge via the broadcaster
             channel (str, optional): Channel name. Defaults to "EventNotifier".
             broadcast_type (Broadcast, optional): Broadcast class to use. None - Defaults to Broadcast.
-            is_publish_only (bool, optional): Should the broadcaster only transmit events and not listen to any. Defaults to False
+            is_publish_only (bool, optional): [For default context] Should the broadcaster only transmit events and not listen to any. Defaults to False
         """
         # Broadcast init params
         self._broadcast_url = broadcast_url
@@ -137,6 +134,10 @@ class EventBroadcaster:
         self._notifier = notifier
         self._is_publish_only = is_publish_only
         self._publish_lock = asyncio.Lock()
+        # used to track creation / removal of resources needed per type (reader task->listen, and subscription to internal events->share)
+        self._listen_count: int = 0
+        self._share_count: int = 0     
+        # If we opt to manage the context directly (i.e. call async with on the event broadcaster itself)   
         self._context_manager = None
 
 
@@ -176,7 +177,7 @@ class EventBroadcaster:
         Convince caller (also backward compaltability)
         """
         if self._context_manager is None:
-            self._context_manager = self.get_context()
+            self._context_manager = self.get_context(listen=not self._is_publish_only)
         self._context_manager.__aenter__()
 
 
