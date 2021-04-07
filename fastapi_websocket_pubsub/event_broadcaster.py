@@ -1,6 +1,5 @@
 import asyncio
 from typing import Any, Union
-from asyncio.exceptions import InvalidStateError
 from pydantic.main import BaseModel
 from .event_notifier import EventNotifier, Subscription, TopicList, ALL_TOPICS
 from broadcaster import Broadcast
