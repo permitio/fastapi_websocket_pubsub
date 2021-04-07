@@ -65,10 +65,11 @@ class EventBroadcasterContextManger:
                 if self._event_broadcaster._share_count == 1:
                     # We have our first publisher
                     # Init the broadcast used for sharing (reading has its own)
-                    self._event_broadcaster._acquire_publishing_broadcast()                
+                    self._event_broadcaster._acquire_sharing_broadcast_channel()                
                     logger.info("Subscribing to ALL TOPICS, and sharing messages with broadcast channel")
                     # Subscribe to internal events form our own event notifier and broadcast them
                     await self._event_broadcaster._subscribe_to_all_topics()
+        return self
 
     async def __aexit__(self, exc_type, exc, tb):
         async with self._lock:
@@ -122,7 +123,7 @@ class EventBroadcaster:
         self._broadcast_url = broadcast_url
         self._broadcast_type = broadcast_type or Broadcast
         # Publish broadcast (initialized within async with statement)
-        self._broadcast = None
+        self._sharing_broadcast_channel = None
         # channel to operate on
         self._channel = channel
         # Async-io task for reading broadcasts (initialized within async with statement)
@@ -154,11 +155,11 @@ class EventBroadcaster:
                                      subscription.topic], data=data)
         # Publish event to broadcast
         async with self._publish_lock:
-            async with self._broadcast:
-                await self._broadcast.publish(self._channel, note.json())
+            async with self._sharing_broadcast_channel:
+                await self._sharing_broadcast_channel.publish(self._channel, note.json())
 
-    def _acquire_publishing_broadcast(self):
-        self._broadcast = self._broadcast_type(self._broadcast_url)
+    def _acquire_sharing_broadcast_channel(self):
+        self._sharing_broadcast_channel = self._broadcast_type(self._broadcast_url)
 
     async def _subscribe_to_all_topics(self):
         return await self._notifier.subscribe(self._id,
@@ -177,11 +178,11 @@ class EventBroadcaster:
         """
         if self._context_manager is None:
             self._context_manager = self.get_context(listen=not self._is_publish_only)
-        self._context_manager.__aenter__()
+        return await self._context_manager.__aenter__()
 
 
     async def __aexit__(self, exc_type, exc, tb):
-        self._context_manager.__aexit__(exc_type, exc, tb)
+        await self._context_manager.__aexit__(exc_type, exc, tb)
 
     def start_reader_task(self):
         """Spawn a task reading incoming broadcasts and posting them to the intreal notifier
@@ -207,10 +208,10 @@ class EventBroadcaster:
         """
         logger.info("Starting broadcaster listener")
         # Init new broadcast channel for reading
-        broadcast_reader = self._broadcast_type(self._broadcast_url)
-        async with broadcast_reader:
+        listening_broadcast_channel = self._broadcast_type(self._broadcast_url)
+        async with listening_broadcast_channel:
             # Subscribe to our channel
-            async with broadcast_reader.subscribe(channel=self._channel) as subscriber:
+            async with listening_broadcast_channel.subscribe(channel=self._channel) as subscriber:
                 async for event in subscriber:
                     try:
                         notification = BroadcastNotification.parse_raw(
