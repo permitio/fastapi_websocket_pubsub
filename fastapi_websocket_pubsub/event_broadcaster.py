@@ -133,7 +133,7 @@ class EventBroadcaster:
         # The internal events notifier
         self._notifier = notifier
         self._is_publish_only = is_publish_only
-        self._publish_lock = asyncio.Lock()
+        self._publish_lock = None
         # used to track creation / removal of resources needed per type (reader task->listen, and subscription to internal events->share)
         self._listen_count: int = 0
         self._share_count: int = 0     
@@ -159,6 +159,10 @@ class EventBroadcaster:
                 await self._sharing_broadcast_channel.publish(self._channel, note.json())
 
     def _acquire_sharing_broadcast_channel(self):
+        """
+        Initialize the elements needed for sharing events with the broadcast channel
+        """
+        self._publish_lock = asyncio.Lock()
         self._sharing_broadcast_channel = self._broadcast_type(self._broadcast_url)
 
     async def _subscribe_to_all_topics(self):
