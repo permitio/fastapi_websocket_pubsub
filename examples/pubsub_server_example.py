@@ -1,7 +1,7 @@
 """
 To run this test.
  - 1. run this script for the server
- - 2. once the server is up, run notifier_client_test.py
+ - 2. once the server is up, run pubsub_client_example.py
  - 3. send get request to server on: 'http://localhost:8000/trigger'
 """
 
