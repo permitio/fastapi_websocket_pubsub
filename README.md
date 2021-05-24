@@ -23,6 +23,8 @@ The easiest way to create a live publish / subscribe multi-cast over the web.
 
 Supports and tested on Python >= 3.7 
 
+As seen at <a href="https://www.youtube.com/watch?v=KP7tPeKhT3o" target="_blank">PyCon IL 2021</a> 
+
 
 ## Installation 🛠️
 ```
