@@ -1,2 +1,2 @@
-fastapi-websocket-rpc>=0.1.18
+fastapi-websocket-rpc>=0.1.20
 broadcaster==0.2.0
