@@ -128,7 +128,7 @@ class EventNotifier:
     async def trigger_callback(self, data, topic: Topic, subscriber_id: SubscriberId, subscription: Subscription):
         await subscription.callback(subscription, data)
 
-    async def callback_subscribers(self, subscribers: Dict[SubscriberId, Subscription],
+    async def callback_subscribers(self, subscribers: Dict[SubscriberId, List[Subscription]],
                                    topic: Topic,
                                    data, notifier_id: SubscriberId = None, override_topic=False):
         """
