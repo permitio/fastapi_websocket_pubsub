@@ -128,7 +128,7 @@ class EventNotifier:
     async def trigger_callback(self, data, topic: Topic, subscriber_id: SubscriberId, subscription: Subscription):
         await subscription.callback(subscription, data)
 
-    async def callback_subscribers(self, subscribers: Dict[SubscriberId, Subscription],
+    async def callback_subscribers(self, subscribers: Dict[SubscriberId, List[Subscription]],
                                    topic: Topic,
                                    data, notifier_id: SubscriberId = None, override_topic=False):
         """
@@ -144,19 +144,21 @@ class EventNotifier:
             try:
                 # Don't notify the notifier
                 if subscriber_id != notifier_id:
-                    logger.info(f"calling subscription callbacks for sub_id={subscriber_id} with topic={topic}")
                     for subscription in subscriptions:
                         if override_topic:
                             # Report actual topic instead of ALL_TOPICS (or whatever is saved in the subscription)
                             event = subscription.copy()
                             event.topic = topic
+                            original_topic = 'ALL_TOPICS' if (subscription.topic == ALL_TOPICS) else subscription.topic
+                            logger.info(f"calling subscription callbacks: topic={topic} ({original_topic}), subscription_id={subscription.id}, subscriber_id={subscriber_id}")
                         else:
                             event = subscription
+                            logger.info(f"calling subscription callbacks: topic={topic}, subscription_id={subscription.id}, subscriber_id={subscriber_id}")
                         # call callback with subscription-info and provided data
                         await self.trigger_callback(data, topic, subscriber_id, event)
             except:
                 logger.exception(f"Failed to notify subscriber sub_id={subscriber_id} with topic={topic}")
-            
+
 
     async def notify(self, topics: Union[TopicList, Topic], data=None, notifier_id=None):
         """

@@ -65,10 +65,12 @@ class EventBroadcasterContextManager:
                 if self._event_broadcaster._share_count == 1:
                     # We have our first publisher
                     # Init the broadcast used for sharing (reading has its own)
-                    self._event_broadcaster._acquire_sharing_broadcast_channel()                
-                    logger.info("Subscribing to ALL TOPICS, and sharing messages with broadcast channel")
+                    self._event_broadcaster._acquire_sharing_broadcast_channel()
+                    logger.info("Subscribing to ALL_TOPICS, and sharing messages with broadcast channel")
                     # Subscribe to internal events form our own event notifier and broadcast them
                     await self._event_broadcaster._subscribe_to_all_topics()
+                else:
+                    logger.info(f"Did not subscribe to ALL_TOPICS: share count == {self._event_broadcaster._share_count}")
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
@@ -149,8 +151,7 @@ class EventBroadcaster:
             subscription (Subscription): the subscription that got triggered
             data: the event data
         """
-        logger.info("Broadcasting incoming event",
-                    {'topic': subscription.topic, 'notifier_id': self._id})
+        logger.info("Broadcasting incoming event: {}".format({'topic': subscription.topic, 'notifier_id': self._id}))
         note = BroadcastNotification(notifier_id=self._id, topics=[
                                      subscription.topic], data=data)
         # Publish event to broadcast
@@ -238,9 +239,7 @@ class EventBroadcaster:
                             event.message)
                         # Avoid re-publishing our own broadcasts
                         if notification.notifier_id != self._id:
-                            logger.debug("Handling incoming broadcast event",
-                                         {'topics': notification.topics,
-                                          'src': notification.notifier_id})
+                            logger.info("Handling incoming broadcast event: {}".format({'topics': notification.topics, 'src': notification.notifier_id}))
                             # Notify subscribers of message received from broadcast
                             await self._notifier.notify(notification.topics, notification.data, notifier_id=self._id)
                     except:
