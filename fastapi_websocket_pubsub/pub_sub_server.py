@@ -4,11 +4,13 @@ from fastapi import WebSocket
 from fastapi_websocket_rpc import WebsocketRPCEndpoint
 from fastapi_websocket_rpc.rpc_channel import RpcChannel
 
+from .logger import get_logger
 from .event_broadcaster import EventBroadcaster
 from .event_notifier import ALL_TOPICS, EventCallback, EventNotifier, Subscription, Topic, TopicList
 from .rpc_event_methods import RpcEventServerMethods
 from .websocket_rpc_event_notifier import WebSocketRpcEventNotifier
 
+logger = get_logger('PubSubEndpoint')
 
 class PubSubEndpoint:
     """
@@ -65,7 +67,9 @@ class PubSubEndpoint:
         """
         # if we have a broadcaster make sure we share with it (no matter where this call comes from)
         # sharing here means - the broadcaster listens in to the notifier as well
+        logger.info(f"Publishing message to topics: {topics}")
         if self.broadcaster is not None:
+            logger.info(f"Acquiring broadcaster sharing context")
             async with self.broadcaster.get_context(listen=False, share=True):
                 await self.notifier.notify(topics, data, notifier_id=self._id)
         # otherwise just notify
