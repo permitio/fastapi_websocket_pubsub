@@ -60,8 +60,8 @@ class EventNotifier:
         # Lock used to sync access to mapped subscriptions
         # Initialized JIT to be sure to grab the right asyncio-loop
         self._lock: asyncio.Lock = None
-        self._on_subscribe_callbacks = []
-        self._on_unsubscribe_callbacks = []
+        self._on_subscribe_events = []
+        self._on_unsubscribe_events = []
 
 
     def gen_subscriber_id(self):
@@ -107,10 +107,7 @@ class EventNotifier:
                 subscriptions.append(new_subscription)
                 new_subscriptions.append(new_subscription)
                 logger.info(f"New subscription {new_subscription.dict()}")
-            callbacks = []
-            for callback in self._on_subscribe_callbacks:
-                callbacks.append(callback(subscriber_id, topics))
-            await asyncio.gather(*callbacks)
+            await EventNotifier.trigger_callbacks(self._on_subscribe_events, subscriber_id, topics)
             return new_subscriptions
 
     async def unsubscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, None] = None):
@@ -131,10 +128,14 @@ class EventNotifier:
                 if subscriber_id in subscribers:
                     logger.info(f"Removing Subscription of topic='{topic}' for subscriber={subscriber_id}")
                     del subscribers[subscriber_id]
-            callbacks = []
-            for callback in self._on_unsubscribe_callbacks:
-                callbacks.append(callback(subscriber_id, topics))
-            await asyncio.gather(*callbacks)
+            await EventNotifier.trigger_callbacks(self._on_unsubscribe_events, subscriber_id, topics)
+
+    @staticmethod
+    async def trigger_callbacks(callbacks: List[Coroutine], *args):
+        callbacks_with_params = []
+        for callback in callbacks:
+            callbacks_with_params.append(callback(*args))
+        await asyncio.gather(*callbacks_with_params)
 
 
     async def trigger_callback(self, data, topic: Topic, subscriber_id: SubscriberId, subscription: Subscription):
@@ -203,20 +204,20 @@ class EventNotifier:
         await asyncio.gather(*callbacks)
 
 
-    def add_on_subscribe_callback(self, callback: Coroutine):
+    def register_subscribe_event(self, callback: Coroutine):
         """
-        Add a callback when new subscriber join.
+        Add a callback function to be triggered when new subscriber joins.
 
         Args:
             callback (Callable): the callback function to call upon a new subscription
         """
-        self._on_subscribe_callbacks.append(callback)
+        self._on_subscribe_events.append(callback)
 
-    def add_on_unsubscribe_callback(self, callback: Coroutine):
+    def register_unsubscribe_event(self, callback: Coroutine):
         """
         Add a callback when subscriber disconnects.
 
         Args:
             callback (Callable): the callback function to call upon a client unsubscribe
         """
-        self._on_unsubscribe_callbacks.append(callback)
+        self._on_unsubscribe_events.append(callback)
