@@ -122,7 +122,7 @@ class EventNotifier:
         async with self._get_subscribers_lock():
             # if no topics are given then unsubscribe from all topics
             if topics is None:
-                topics = self._topics
+                topics = list(self._topics.keys())
             for topic in topics:
                 subscribers = self._topics[topic]
                 if subscriber_id in subscribers:
