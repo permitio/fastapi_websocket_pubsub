@@ -27,7 +27,8 @@ class RpcEventServerMethods(RpcMethodsBase):
                 await self.channel.other.notify(subscription=sub, data=data)
 
             # We'll use our channel id as our subscriber id
-            sub_id = self.channel.id
+            channel_other_channel_id = await self.channel.get_other_channel_id()
+            sub_id = channel_other_channel_id if channel_other_channel_id else self.channel.id
             await self.event_notifier.subscribe(sub_id, topics, callback)
             return True
         except Exception as err:
@@ -43,10 +44,10 @@ class RpcEventServerMethods(RpcMethodsBase):
             data (Any, optional): data to pass with the event to the subscribers. Defaults to None.
             sync (bool, optional): Should the server finish publishing before returning to us
             notifier_id(str,optional): A unique identifier of the source of the event
-                use a different id from the channel.id or the subscription id to receive own publications        
+                use a different id from the channel.id or the subscription id to receive own publications
 
         Returns:
-            bool: was the publish successful                
+            bool: was the publish successful
         """
         try:
             # use the given id or use our channel id

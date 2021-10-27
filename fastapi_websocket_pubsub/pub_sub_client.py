@@ -15,7 +15,7 @@ from .rpc_event_methods import RpcEventClientMethods
 
 logger = get_logger('PubSubClient')
 
-# Callback signature 
+# Callback signature
 async def PubSubOnConnectCallback(pubsub_client, channel:RpcChannel):
     pass
 
@@ -92,7 +92,7 @@ class PubSubClient:
         self._run_task: asyncio.Task = None
         # event to force termination
         self._disconnect_signal:asyncio.Event = None
-        # event to indicate the connection is ready for use 
+        # event to indicate the connection is ready for use
         self._ready_event:asyncio.Event = None
         # The RpcChannel initialized - used to access the client from other asyncio tasks
         self._rpc_channel = None
@@ -114,7 +114,7 @@ class PubSubClient:
     def wait_until_ready(self, create_event=True) -> Coroutine:
         """Return a wait coroutine for the internal readiness event
         Args:
-            create_event (bool, optional): Should an event be created if missing 
+            create_event (bool, optional): Should an event be created if missing
             (@Note- avoid creating an event from another loop). Defaults to True.
 
         Raises:
@@ -129,7 +129,7 @@ class PubSubClient:
                 return self._ready_event.wait()
             else:
                 raise PubSubClientInvalidStateException("Cannot wait on readiness prior to client starting or without creating an event")
-        else:    
+        else:
             return self._ready_event.wait()
 
     def _init_event_objects(self):
@@ -159,13 +159,13 @@ class PubSubClient:
         if self._run_task is not None:
             await self._run_task
         self._run_task = None
-        
+
     async def run(self, uri, wait_on_reader=True):
         """
         runs the rpc client (async api).
         if you want to call from a synchronous program, use start_client().
         """
-        # init internal events 
+        # init internal events
         self._init_event_objects()
         while not self._disconnect_signal.is_set():
             try:
@@ -182,7 +182,7 @@ class PubSubClient:
                         logger.info(f"Connected to PubSub server {uri}")
                         if wait_on_reader:
                             # Wait on the internal RPC task or until we ar asked to terminate - keeping the client alive meanwhile
-                            # Waiting on the reader tasks allows us to receive exceptions raised on the websocket layer- indicating a need to reset the connection 
+                            # Waiting on the reader tasks allows us to receive exceptions raised on the websocket layer- indicating a need to reset the connection
                             wait_on_reader_task = client.wait_on_reader()
                             for task in asyncio.as_completed([wait_on_reader_task, self._disconnect_signal.wait()]):
                                 await task
@@ -192,8 +192,8 @@ class PubSubClient:
                     except asyncio.CancelledError:
                         logger.info(f"Connection was actively canceled -- Won't try to reconnect.")
                         # clean exit (no retrying)
-                        # better support for keyboard interrupt 
-                        return                         
+                        # better support for keyboard interrupt
+                        return
                     except:
                         # log unhandled exceptions (which will be swallowed by the with statement otherwise )
                         logger.exception(f"Unknown PubSub error -- Trying to reconnect.")
@@ -204,7 +204,7 @@ class PubSubClient:
                 logger.info(f"Connection attempt was canceled -- Won't try to reconnect.")
             except:
                 logger.exception(f"Unknown PubSub init error -- Trying to reconnect.")
-                
+
 
     async def _primary_on_connect(self, channel: RpcChannel):
         # Store current channel for additional use by other methods
@@ -212,7 +212,7 @@ class PubSubClient:
         # subscribe to all the topics we have registered
         await self._subscribe_stored_topics(channel)
         self._ready_event.set()
-        # Now that PubSub us alive trigger sub subscribers
+        # Now that PubSub is alive trigger sub subscribers
         if isinstance(self._on_connect, list):
             await asyncio.gather(*(callback(self, channel) for callback in self._on_connect))
 
@@ -222,9 +222,9 @@ class PubSubClient:
         @see fastapi_websocket_pubsub/rpc_event_methods.py :: RpcEventServerMethods.subscribe
 
         Args:
-            topic (Topic): the identifier of the event topic with wish to be called 
-                           upon events being published - can be a simple string e.g. 
-                           'hello' or a complex path 'a/b/c/d' . 
+            topic (Topic): the identifier of the event topic with wish to be called
+                           upon events being published - can be a simple string e.g.
+                           'hello' or a complex path 'a/b/c/d' .
                            Note: You can use ALL_TOPICS (event_notifier.ALL_TOPICS) to subscribe to all topics
             callback (Coroutine): the function to call upon relevant event publishing
         """
@@ -279,7 +279,7 @@ class PubSubClient:
         try:
             # get callbacks for topic
             callbacks = self._callbacks.get(topic,[])
-            # get callbacks for ALL_TOPICS 
+            # get callbacks for ALL_TOPICS
             callbacks.extend(self._callbacks.get(ALL_TOPICS,[]))
             # Gather coroutine futures to wait together
             futures = [callback(data=data, topic=topic) for callback in callbacks]
