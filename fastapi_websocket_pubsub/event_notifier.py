@@ -1,6 +1,6 @@
 import asyncio
 import copy
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Union
 
 from fastapi_websocket_rpc.utils import gen_uid
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
@@ -60,6 +60,11 @@ class EventNotifier:
         # Lock used to sync access to mapped subscriptions
         # Initialized JIT to be sure to grab the right asyncio-loop
         self._lock: asyncio.Lock = None
+        # List of events to call when client subscribed
+        self._on_subscribe_events = []
+        # List of events to call when client unsubscribed
+        self._on_unsubscribe_events = []
+
 
     def gen_subscriber_id(self):
         return gen_uid()
@@ -74,7 +79,7 @@ class EventNotifier:
         if self._lock is None:
             self._lock = asyncio.Lock()
         return self._lock
-       
+
 
     async def subscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, ALL_TOPICS], callback: EventCallback) -> List[Subscription]:
         """
@@ -104,6 +109,7 @@ class EventNotifier:
                 subscriptions.append(new_subscription)
                 new_subscriptions.append(new_subscription)
                 logger.info(f"New subscription {new_subscription.dict()}")
+            await EventNotifier.trigger_events(self._on_subscribe_events, subscriber_id, topics)
             return new_subscriptions
 
     async def unsubscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, None] = None):
@@ -118,12 +124,21 @@ class EventNotifier:
         async with self._get_subscribers_lock():
             # if no topics are given then unsubscribe from all topics
             if topics is None:
-                topics = self._topics
+                topics = list(self._topics.keys())
             for topic in topics:
                 subscribers = self._topics[topic]
                 if subscriber_id in subscribers:
                     logger.info(f"Removing Subscription of topic='{topic}' for subscriber={subscriber_id}")
                     del subscribers[subscriber_id]
+            await EventNotifier.trigger_events(self._on_unsubscribe_events, subscriber_id, topics)
+
+    @staticmethod
+    async def trigger_events(event_callbacks: List[Coroutine], *args):
+        callbacks_with_params = []
+        for callback in event_callbacks:
+            callbacks_with_params.append(callback(*args))
+        await asyncio.gather(*callbacks_with_params)
+
 
     async def trigger_callback(self, data, topic: Topic, subscriber_id: SubscriberId, subscription: Subscription):
         await subscription.callback(subscription, data)
@@ -187,5 +202,24 @@ class EventNotifier:
                 # Use actual topic instead of ALL_TOPICS
                 callbacks.append(self.callback_subscribers(copy.copy(subscribers_to_all), topic, data, notifier_id, override_topic=True))
         # call the subscribers outside of the lock - if they disconnect in the middle of the handling the with statement may fail
-        # -- (issue with interrupts https://bugs.python.org/issue29988) 
+        # -- (issue with interrupts https://bugs.python.org/issue29988)
         await asyncio.gather(*callbacks)
+
+
+    def register_subscribe_event(self, callback: Coroutine):
+        """
+        Add a callback function to be triggered when new subscriber joins.
+
+        Args:
+            callback (Callable): the callback function to call upon a new subscription
+        """
+        self._on_subscribe_events.append(callback)
+
+    def register_unsubscribe_event(self, callback: Coroutine):
+        """
+        Add a callback function to be triggered when a subscriber disconnects.
+
+        Args:
+            callback (Callable): the callback function to call upon a client unsubscribe
+        """
+        self._on_unsubscribe_events.append(callback)
