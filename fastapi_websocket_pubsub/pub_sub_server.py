@@ -21,7 +21,8 @@ class PubSubEndpoint:
                 notifier:EventNotifier=None,
                 broadcaster:Union[EventBroadcaster, str]=None,
                 on_connect:List[Coroutine]=[],
-                on_disconnect:List[Coroutine]=[]):
+                on_disconnect:List[Coroutine]=[],
+                rpc_channel_get_remote_id: bool=False):
         """
         The PubSub endpoint recives subscriptions from clients and publishes data back to them upon receiving relevant publications.
             Publications (aka event notifications) can come from:
@@ -46,7 +47,7 @@ class PubSubEndpoint:
         self.notifier = notifier if notifier is not None else WebSocketRpcEventNotifier()
         self.broadcaster = broadcaster if isinstance(broadcaster, EventBroadcaster) or broadcaster is None else EventBroadcaster(broadcaster, self.notifier)
         self.methods = methods_class(self.notifier) if methods_class is not None else RpcEventServerMethods(self.notifier)
-        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=[self.on_disconnect, *on_disconnect], on_connect=on_connect)
+        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=[self.on_disconnect, *on_disconnect], on_connect=on_connect,rpc_channel_get_remote_id=rpc_channel_get_remote_id)
         # server id used to publish events for clients
         self._id = self.notifier.gen_subscriber_id()
         # Separate if for the server to subscribe to its own events
