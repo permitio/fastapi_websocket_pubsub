@@ -6,9 +6,10 @@ from .logger import get_logger
 
 class RpcEventServerMethods(RpcMethodsBase):
 
-    def __init__(self, event_notifier: EventNotifier):
+    def __init__(self, event_notifier: EventNotifier, rpc_channel_get_remote_id: bool=False):
         super().__init__()
         self.event_notifier = event_notifier
+        self._rpc_channel_get_remote_id = rpc_channel_get_remote_id
         self.logger = get_logger('PubSubServer')
 
     async def subscribe(self, topics: TopicList = []) -> bool:
@@ -26,9 +27,17 @@ class RpcEventServerMethods(RpcMethodsBase):
                                  "data":data, "channel_id": self.channel.id})
                 await self.channel.other.notify(subscription=sub, data=data)
 
-            # We'll use our channel id as our subscriber id
-            channel_other_channel_id = await self.channel.get_other_channel_id()
-            sub_id = channel_other_channel_id if channel_other_channel_id else self.channel.id
+            if self._rpc_channel_get_remote_id:
+                # We'll use the remote channel id as our subscriber id
+                channel_other_channel_id = await self.channel.get_other_channel_id()
+                if channel_other_channel_id is None:
+                    self.logger.warning("could not fetch remote channel id, using local channel id to subscribe")
+                    sub_id = self.channel.id
+                else:
+                    sub_id = channel_other_channel_id
+            else:
+                # We'll use our channel id as our subscriber id
+                sub_id = self.channel.id
             await self.event_notifier.subscribe(sub_id, topics, callback)
             return True
         except Exception as err:

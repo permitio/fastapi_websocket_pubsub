@@ -49,7 +49,8 @@ class PubSubEndpoint:
         self.methods = methods_class(self.notifier) if methods_class is not None else RpcEventServerMethods(self.notifier)
         if on_disconnect is None:
             on_disconnect = []
-        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=[self.on_disconnect, *on_disconnect], on_connect=on_connect,rpc_channel_get_remote_id=rpc_channel_get_remote_id)
+        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=[self.on_disconnect, *on_disconnect], on_connect=on_connect, rpc_channel_get_remote_id=rpc_channel_get_remote_id)
+        self._rpc_channel_get_remote_id = rpc_channel_get_remote_id
         # server id used to publish events for clients
         self._id = self.notifier.gen_subscriber_id()
         # Separate if for the server to subscribe to its own events
@@ -81,8 +82,16 @@ class PubSubEndpoint:
     notify = publish
 
     async def on_disconnect(self, channel: RpcChannel):
-        channel_other_channel_id = await channel.get_other_channel_id()
-        await self.notifier.unsubscribe(channel_other_channel_id)
+        if self._rpc_channel_get_remote_id:
+            channel_other_channel_id = await channel.get_other_channel_id()
+            if channel_other_channel_id is None:
+                logger.warning("could not fetch remote channel id, using local channel id to unsubscribe")
+                subscriber_id = channel.id
+            else:
+                subscriber_id = channel_other_channel_id
+        else:
+            subscriber_id = channel.id
+        await self.notifier.unsubscribe(subscriber_id)
 
     async def main_loop(self, websocket: WebSocket, client_id: str = None, **kwargs):
         await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
