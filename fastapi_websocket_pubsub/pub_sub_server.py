@@ -17,17 +17,18 @@ class PubSubEndpoint:
     RPC pub/sub server endpoint
     """
 
-    def __init__(self, methods_class=None, 
-                notifier:EventNotifier=None, 
+    def __init__(self, methods_class=None,
+                notifier:EventNotifier=None,
                 broadcaster:Union[EventBroadcaster, str]=None,
-                on_connect:List[Coroutine]=None, 
-                on_disconnect:List[Coroutine]=None, ):
+                on_connect:List[Coroutine]=None,
+                on_disconnect:List[Coroutine]=None,
+                rpc_channel_get_remote_id: bool=False):
         """
         The PubSub endpoint recives subscriptions from clients and publishes data back to them upon receiving relevant publications.
             Publications (aka event notifications) can come from:
                 - Code in the same server calling this instance's '.publish()'
                 - Connected PubSubClients calling their own publish method (and piping into the servers via RPC)
-                - Other servers linked through a broadcaster channel such as Redis Pub/Sub, Kafka, or postgres listen/notify 
+                - Other servers linked through a broadcaster channel such as Redis Pub/Sub, Kafka, or postgres listen/notify
                     (@see EventBroadcaster and of course https://pypi.org/project/broadcaster/)
 
         Args:
@@ -38,17 +39,18 @@ class PubSubEndpoint:
                                  Handles to internal event pub/sub logic
 
             broadcaster (optional): Instance of EventBroadcaster, a URL string to init EventBroadcaster, or None to not use
-                                    The broadcaster allows several EventRpcEndpoints across multiple processes / services to share incoming notifications 
+                                    The broadcaster allows several EventRpcEndpoints across multiple processes / services to share incoming notifications
 
             on_connect (List[Coroutine]): callbacks on connection being established (each callback is called with the channel)
-            on_disconnect (List[Coroutine]): callbacks on connection termination (each callback is called with the channel)                                    
+            on_disconnect (List[Coroutine]): callbacks on connection termination (each callback is called with the channel)
         """
         self.notifier = notifier if notifier is not None else WebSocketRpcEventNotifier()
         self.broadcaster = broadcaster if isinstance(broadcaster, EventBroadcaster) or broadcaster is None else EventBroadcaster(broadcaster, self.notifier)
         self.methods = methods_class(self.notifier) if methods_class is not None else RpcEventServerMethods(self.notifier)
         if on_disconnect is None:
             on_disconnect = []
-        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=[self.on_disconnect, *on_disconnect], on_connect=on_connect)
+        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=[self.on_disconnect, *on_disconnect], on_connect=on_connect, rpc_channel_get_remote_id=rpc_channel_get_remote_id)
+        self._rpc_channel_get_remote_id = rpc_channel_get_remote_id
         # server id used to publish events for clients
         self._id = self.notifier.gen_subscriber_id()
         # Separate if for the server to subscribe to its own events
@@ -80,7 +82,16 @@ class PubSubEndpoint:
     notify = publish
 
     async def on_disconnect(self, channel: RpcChannel):
-        await self.notifier.unsubscribe(channel.id)
+        if self._rpc_channel_get_remote_id:
+            channel_other_channel_id = await channel.get_other_channel_id()
+            if channel_other_channel_id is None:
+                logger.warning("could not fetch remote channel id, using local channel id to unsubscribe")
+                subscriber_id = channel.id
+            else:
+                subscriber_id = channel_other_channel_id
+        else:
+            subscriber_id = channel.id
+        await self.notifier.unsubscribe(subscriber_id)
 
     async def main_loop(self, websocket: WebSocket, client_id: str = None, **kwargs):
         await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
