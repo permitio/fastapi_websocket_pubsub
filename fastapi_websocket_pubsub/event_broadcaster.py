@@ -66,11 +66,11 @@ class EventBroadcasterContextManager:
                     # We have our first publisher
                     # Init the broadcast used for sharing (reading has its own)
                     self._event_broadcaster._acquire_sharing_broadcast_channel()
-                    logger.info("Subscribing to ALL_TOPICS, and sharing messages with broadcast channel")
+                    logger.debug("Subscribing to ALL_TOPICS, and sharing messages with broadcast channel")
                     # Subscribe to internal events form our own event notifier and broadcast them
                     await self._event_broadcaster._subscribe_to_all_topics()
                 else:
-                    logger.info(f"Did not subscribe to ALL_TOPICS: share count == {self._event_broadcaster._share_count}")
+                    logger.debug(f"Did not subscribe to ALL_TOPICS: share count == {self._event_broadcaster._share_count}")
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
@@ -91,7 +91,7 @@ class EventBroadcasterContextManager:
                     # if this was last sharer - we can stop subscribing to internal events - we aren't sharing anymore
                     if self._event_broadcaster._share_count == 0:
                         # Unsubscribe from internal events
-                        logger.info("Unsubscribing from ALL TOPICS")
+                        logger.debug("Unsubscribing from ALL TOPICS")
                         await self._event_broadcaster._unsubscribe_from_topics()
 
             except:
@@ -218,7 +218,7 @@ class EventBroadcaster:
             logger.debug("No need for listen task, already started broadcast listen task for this notifier")
             return
         # Trigger the task
-        logger.info("Spawning broadcast listen task")
+        logger.debug("Spawning broadcast listen task")
         self._subscription_task = asyncio.create_task(
             self.__read_notifications__())
         return self._subscription_task

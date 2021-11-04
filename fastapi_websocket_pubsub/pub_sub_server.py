@@ -69,9 +69,9 @@ class PubSubEndpoint:
         """
         # if we have a broadcaster make sure we share with it (no matter where this call comes from)
         # sharing here means - the broadcaster listens in to the notifier as well
-        logger.info(f"Publishing message to topics: {topics}")
+        logger.debug(f"Publishing message to topics: {topics}")
         if self.broadcaster is not None:
-            logger.info(f"Acquiring broadcaster sharing context")
+            logger.debug(f"Acquiring broadcaster sharing context")
             async with self.broadcaster.get_context(listen=False, share=True):
                 await self.notifier.notify(topics, data, notifier_id=self._id)
         # otherwise just notify
