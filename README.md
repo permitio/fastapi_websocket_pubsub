@@ -6,8 +6,8 @@
 
 # ⚡🗞️ FastAPI Websocket Pub/Sub 
 
-<a href="https://github.com/authorizon/fastapi_websocket_pubsub/actions?query=workflow%3ATests" target="_blank">
-    <img src="https://github.com/authorizon/fastapi_websocket_pubsub/workflows/Tests/badge.svg" alt="Tests">
+<a href="https://github.com/permitio/fastapi_websocket_pubsub/actions?query=workflow%3ATests" target="_blank">
+    <img src="https://github.com/permitio/fastapi_websocket_pubsub/workflows/Tests/badge.svg" alt="Tests">
 </a>
 
 <a href="https://pypi.org/project/fastapi-websocket-pubsub/" target="_blank">
@@ -114,7 +114,7 @@ async with PubSubClient(server_uri="ws://localhost/pubsub") as client:
 
 ## More Examples
 - See the [examples](/examples) and [tests](/tests) folders for more server and client examples.
-- See [fastapi-websocket-rpc depends example](https://github.com/authorizon/fastapi_websocket_rpc/blob/master/tests/fast_api_depends_test.py) to see how to combine with FASTAPI dependency injections 
+- See [fastapi-websocket-rpc depends example](https://github.com/permitio/fastapi_websocket_rpc/blob/master/tests/fast_api_depends_test.py) to see how to combine with FASTAPI dependency injections
 
 ## What can I do with this?
 The combination of Websockets, and bi-directional Pub/Sub is  ideal to create realtime data propagation solution at scale over the web. 
@@ -127,7 +127,7 @@ The combination of Websockets, and bi-directional Pub/Sub is  ideal to create re
 
 ## Foundations:
 
-- Based on [fastapi-websocket-rpc](https://github.com/authorizon/fastapi_websocket_rpc) for a robust realtime bidirectional channel
+- Based on [fastapi-websocket-rpc](https://github.com/permitio/fastapi_websocket_rpc) for a robust realtime bidirectional channel
 
 - Based on [broadcaster](https://pypi.org/project/broadcaster/) for syncing server instances
 

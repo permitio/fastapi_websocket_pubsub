@@ -13,11 +13,11 @@ setup(
     name='fastapi_websocket_pubsub',
     version='0.1.21',
     author='Or Weis',
-    author_email="or@authorizon.com",
+    author_email="or@permit.io",
     description="A fast and durable PubSub channel over Websockets (using fastapi-websockets-rpc).",
     long_description_content_type="text/markdown",
     long_description=long_description,
-    url="https://github.com/authorizon/fastapi_websocket_pubsub",
+    url="https://github.com/permitio/fastapi_websocket_pubsub",
     packages=find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
