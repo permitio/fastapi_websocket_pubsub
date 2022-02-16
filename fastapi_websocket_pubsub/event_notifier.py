@@ -33,9 +33,11 @@ class Subscription(BaseModel):
     callback: Callable = None
     notifier_id: Optional[str] = None
 
+
 # Publish event callback signature
 def EventCallback(subscription: Subscription, data: Any):
     pass
+
 
 class EventNotifier:
     """
@@ -65,8 +67,8 @@ class EventNotifier:
         self._on_subscribe_events = []
         # List of events to call when client unsubscribed
         self._on_unsubscribe_events = []
-        # List of restriction checks to perform on subscriptions
-        self._subscription_restriction = []
+        # List of restriction checks to perform on every action on the channel
+        self._channel_restrictions = []
 
     def gen_subscriber_id(self):
         return gen_uid()
@@ -82,8 +84,8 @@ class EventNotifier:
             self._lock = asyncio.Lock()
         return self._lock
 
-    def add_subscription_restriction(self, restriction_callback):
-        self._subscription_restriction.append(restriction_callback)
+    def add_channel_restriction(self, restriction_callback):
+        self._channel_restrictions.append(restriction_callback)
 
     async def subscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, ALL_TOPICS], callback: EventCallback, channel: Optional[RpcChannel] = None) -> List[Subscription]:
         """
@@ -99,7 +101,7 @@ class EventNotifier:
             channel (RpcChannel): Optional channel to handle on the registered restrictions
         """
         if channel:
-            for restriction in self._subscription_restriction:
+            for restriction in self._channel_restrictions:
                 restriction(topics, channel)
 
         new_subscriptions = []
@@ -148,7 +150,6 @@ class EventNotifier:
             callbacks_with_params.append(callback(*args))
         await asyncio.gather(*callbacks_with_params)
 
-
     async def trigger_callback(self, data, topic: Topic, subscriber_id: SubscriberId, subscription: Subscription):
         await subscription.callback(subscription, data)
 
@@ -183,8 +184,7 @@ class EventNotifier:
             except:
                 logger.exception(f"Failed to notify subscriber sub_id={subscriber_id} with topic={topic}")
 
-
-    async def notify(self, topics: Union[TopicList, Topic], data=None, notifier_id=None):
+    async def notify(self, topics: Union[TopicList, Topic], data=None, notifier_id=None, channel: Optional[RpcChannel] = None):
         """
         Notify subscribers of a new event per topic. (i.e. Publish events)
 
@@ -192,10 +192,15 @@ class EventNotifier:
             topics (Union[TopicList, Topic]): Topics to trigger a publish event for (Calling the callbacks of all their subscribers)
             data ([type], optional): Arbitrary data to pass each callback. Defaults to None.
             notifier_id (str): an id of the entity sending the notification, use the same id as subscriber id to avoid getting your own notifications
+            channel (RpcChannel): Optional channel to handle on the registered restrictions
         """
         # allow caller to pass a single topic without a list
         if isinstance(topics, Topic):
             topics = [topics]
+
+        if channel:
+            for restriction in self._channel_restrictions:
+                restriction(topics, channel)
 
         # get ALL_TOPICS subscribers
         subscribers_to_all = self._topics.get(ALL_TOPICS, {})
@@ -213,7 +218,6 @@ class EventNotifier:
         # call the subscribers outside of the lock - if they disconnect in the middle of the handling the with statement may fail
         # -- (issue with interrupts https://bugs.python.org/issue29988)
         await asyncio.gather(*callbacks)
-
 
     def register_subscribe_event(self, callback: Coroutine):
         """

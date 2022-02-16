@@ -61,7 +61,7 @@ class RpcEventServerMethods(RpcMethodsBase):
         try:
             # use the given id or use our channel id
             notifier_id = notifier_id if notifier_id is not None else self.channel.id
-            promise = self.event_notifier.notify(topics, data, notifier_id=notifier_id)
+            promise = self.event_notifier.notify(topics, data, notifier_id=notifier_id, self.channel)
             if sync:
                 await promise
             else:
