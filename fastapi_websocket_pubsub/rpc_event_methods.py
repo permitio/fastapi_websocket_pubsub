@@ -38,7 +38,7 @@ class RpcEventServerMethods(RpcMethodsBase):
             else:
                 # We'll use our channel id as our subscriber id
                 sub_id = self.channel.id
-            await self.event_notifier.subscribe(sub_id, topics, callback)
+            await self.event_notifier.subscribe(sub_id, topics, callback, self.channel)
             return True
         except Exception as err:
             self.logger.exception("Failed to subscribe to RPC events notifier", topics)

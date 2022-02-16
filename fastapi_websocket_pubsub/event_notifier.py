@@ -2,6 +2,7 @@ import asyncio
 import copy
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Union
 
+from fastapi_websocket_rpc import RpcChannel
 from fastapi_websocket_rpc.utils import gen_uid
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
@@ -64,7 +65,8 @@ class EventNotifier:
         self._on_subscribe_events = []
         # List of events to call when client unsubscribed
         self._on_unsubscribe_events = []
-
+        # List of restriction checks to perform on subscriptions
+        self._subscription_restriction = []
 
     def gen_subscriber_id(self):
         return gen_uid()
@@ -80,8 +82,10 @@ class EventNotifier:
             self._lock = asyncio.Lock()
         return self._lock
 
+    def add_subscription_restriction(self, restriction_callback):
+        self._subscription_restriction.append(restriction_callback)
 
-    async def subscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, ALL_TOPICS], callback: EventCallback) -> List[Subscription]:
+    async def subscribe(self, subscriber_id: SubscriberId, topics: Union[TopicList, ALL_TOPICS], callback: EventCallback, channel: Optional[RpcChannel] = None) -> List[Subscription]:
         """
         Subscribe to a set of topics.
         Once a notification (i.e. publish) of a topic is received the provided callback function will be called (with topic and data)
@@ -92,7 +96,12 @@ class EventNotifier:
             topics (TopicList, ALL_TOPICS): A list of topic to subscribe to (Each topic is saved in a separate subscription)
                                 ALL_TOPICS can be passed to subscribe to  everything (all current and future topics)
             callback (Callable): the callback function to call upon a publish event
+            channel (RpcChannel): Optional channel to handle on the registered restrictions
         """
+        if channel:
+            for restriction in self._subscription_restriction:
+                restriction(topics, channel)
+
         new_subscriptions = []
         async with self._get_subscribers_lock():
             if topics == ALL_TOPICS:
