@@ -1,5 +1,5 @@
 """
-Pattern: 
+Pattern:
         Publishing-Client -> PubSubServer -> Subscribing->Client
 
 """
@@ -8,9 +8,6 @@ import os
 import sys
 
 from fastapi_websocket_rpc import logger
-
-# Add parent path to use local src as package for tests
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 
 import asyncio
 from multiprocessing import Process, Event as ProcEvent
@@ -24,6 +21,12 @@ from fastapi_websocket_rpc.logger import get_logger
 from fastapi_websocket_rpc.utils import gen_uid
 from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient
 
+
+# Add parent path to use local src as package for tests
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
+)
+
 logger = get_logger("Test")
 
 # Configurable
@@ -36,8 +39,9 @@ EVENT_TOPIC = "event/has-happened"
 
 CLIENT_START_SYNC = ProcEvent()
 
+
 def setup_server():
-    app =  FastAPI()
+    app = FastAPI()
     router = APIRouter()
     # PubSub websocket endpoint
     endpoint = PubSubEndpoint()
@@ -45,22 +49,25 @@ def setup_server():
     app.include_router(router)
     uvicorn.run(app, port=PORT)
 
+
 def setup_publishing_client():
     """
-    this client will publish an event to the main-test client 
+    this client will publish an event to the main-test client
     """
+
     async def actual():
         # Wait for other client to wake up before publishing to it
         CLIENT_START_SYNC.wait(5)
         # Create a client and subscribe to topics
         client = PubSubClient()
         client.start_client(uri)
-        # wait for the client to be ready 
+        # wait for the client to be ready
         await client.wait_until_ready()
         # publish event
         logger.info("Publishing event")
         published = await client.publish([EVENT_TOPIC], data=DATA)
-        assert published.result == True
+        assert published.result
+
     logger.info("Starting async publishing client")
     asyncio.get_event_loop().run_until_complete(actual())
 
@@ -71,7 +78,8 @@ def server():
     proc = Process(target=setup_server, args=(), daemon=True)
     proc.start()
     yield proc
-    proc.kill() # Cleanup after test
+    proc.kill()  # Cleanup after test
+
 
 @pytest.fixture(scope="module")
 def pub_client():
@@ -79,7 +87,7 @@ def pub_client():
     proc = Process(target=setup_publishing_client, args=(), daemon=True)
     proc.start()
     yield proc
-    proc.kill() # Cleanup after test
+    proc.kill()  # Cleanup after test
 
 
 @pytest.mark.asyncio
@@ -88,10 +96,12 @@ async def test_pub_sub_multi_client(server, pub_client):
     finish = asyncio.Event()
     # Create a client and subscribe to topics
     async with PubSubClient() as client:
+
         async def on_event(data, topic):
             assert data == DATA
             assert topic == EVENT_TOPIC
             finish.set()
+
         # subscribe for the event
         logger.info("Subscribing for events")
         client.subscribe(EVENT_TOPIC, on_event)
@@ -102,4 +112,4 @@ async def test_pub_sub_multi_client(server, pub_client):
         logger.info("First client is ready")
         CLIENT_START_SYNC.set()
         # wait for finish trigger
-        await asyncio.wait_for(finish.wait(),10)
+        await asyncio.wait_for(finish.wait(), 10)

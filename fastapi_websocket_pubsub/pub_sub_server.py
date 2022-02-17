@@ -6,23 +6,34 @@ from fastapi_websocket_rpc.rpc_channel import RpcChannel
 
 from .logger import get_logger
 from .event_broadcaster import EventBroadcaster
-from .event_notifier import ALL_TOPICS, EventCallback, EventNotifier, Subscription, Topic, TopicList
+from .event_notifier import (
+    ALL_TOPICS,
+    EventCallback,
+    EventNotifier,
+    Subscription,
+    Topic,
+    TopicList,
+)
 from .rpc_event_methods import RpcEventServerMethods
 from .websocket_rpc_event_notifier import WebSocketRpcEventNotifier
 
-logger = get_logger('PubSubEndpoint')
+logger = get_logger("PubSubEndpoint")
+
 
 class PubSubEndpoint:
     """
     RPC pub/sub server endpoint
     """
 
-    def __init__(self, methods_class=None,
-                notifier:EventNotifier=None,
-                broadcaster:Union[EventBroadcaster, str]=None,
-                on_connect:List[Coroutine]=None,
-                on_disconnect:List[Coroutine]=None,
-                rpc_channel_get_remote_id: bool=False):
+    def __init__(
+        self,
+        methods_class=None,
+        notifier: EventNotifier = None,
+        broadcaster: Union[EventBroadcaster, str] = None,
+        on_connect: List[Coroutine] = None,
+        on_disconnect: List[Coroutine] = None,
+        rpc_channel_get_remote_id: bool = False,
+    ):
         """
         The PubSub endpoint recives subscriptions from clients and publishes data back to them upon receiving relevant publications.
             Publications (aka event notifications) can come from:
@@ -44,19 +55,36 @@ class PubSubEndpoint:
             on_connect (List[Coroutine]): callbacks on connection being established (each callback is called with the channel)
             on_disconnect (List[Coroutine]): callbacks on connection termination (each callback is called with the channel)
         """
-        self.notifier = notifier if notifier is not None else WebSocketRpcEventNotifier()
-        self.broadcaster = broadcaster if isinstance(broadcaster, EventBroadcaster) or broadcaster is None else EventBroadcaster(broadcaster, self.notifier)
-        self.methods = methods_class(self.notifier) if methods_class is not None else RpcEventServerMethods(self.notifier)
+        self.notifier = (
+            notifier if notifier is not None else WebSocketRpcEventNotifier()
+        )
+        self.broadcaster = (
+            broadcaster
+            if isinstance(broadcaster, EventBroadcaster) or broadcaster is None
+            else EventBroadcaster(broadcaster, self.notifier)
+        )
+        self.methods = (
+            methods_class(self.notifier)
+            if methods_class is not None
+            else RpcEventServerMethods(self.notifier)
+        )
         if on_disconnect is None:
             on_disconnect = []
-        self.endpoint = WebsocketRPCEndpoint(self.methods, on_disconnect=[self.on_disconnect, *on_disconnect], on_connect=on_connect, rpc_channel_get_remote_id=rpc_channel_get_remote_id)
+        self.endpoint = WebsocketRPCEndpoint(
+            self.methods,
+            on_disconnect=[self.on_disconnect, *on_disconnect],
+            on_connect=on_connect,
+            rpc_channel_get_remote_id=rpc_channel_get_remote_id,
+        )
         self._rpc_channel_get_remote_id = rpc_channel_get_remote_id
         # server id used to publish events for clients
         self._id = self.notifier.gen_subscriber_id()
         # Separate if for the server to subscribe to its own events
-        self._subscriber_id:str = self.notifier.gen_subscriber_id()
+        self._subscriber_id: str = self.notifier.gen_subscriber_id()
 
-    async def subscribe(self, topics: Union[TopicList, ALL_TOPICS], callback: EventCallback) -> List[Subscription]:
+    async def subscribe(
+        self, topics: Union[TopicList, ALL_TOPICS], callback: EventCallback
+    ) -> List[Subscription]:
         return await self.notifier.subscribe(self._subscriber_id, topics, callback)
 
     async def publish(self, topics: Union[TopicList, Topic], data=None):
@@ -85,7 +113,9 @@ class PubSubEndpoint:
         if self._rpc_channel_get_remote_id:
             channel_other_channel_id = await channel.get_other_channel_id()
             if channel_other_channel_id is None:
-                logger.warning("could not fetch remote channel id, using local channel id to unsubscribe")
+                logger.warning(
+                    "could not fetch remote channel id, using local channel id to unsubscribe"
+                )
                 subscriber_id = channel.id
             else:
                 subscriber_id = channel_other_channel_id
