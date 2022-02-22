@@ -109,7 +109,7 @@ class EventNotifier:
         """
         if channel:
             for restriction in self._channel_restrictions:
-                restriction(topics, channel)
+                await restriction(topics, channel)
 
         new_subscriptions = []
         async with self._get_subscribers_lock():
@@ -245,7 +245,7 @@ class EventNotifier:
 
         if channel:
             for restriction in self._channel_restrictions:
-                restriction(topics, channel)
+                await restriction(topics, channel)
 
         # get ALL_TOPICS subscribers
         subscribers_to_all = self._topics.get(ALL_TOPICS, {})

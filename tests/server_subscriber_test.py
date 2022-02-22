@@ -1,15 +1,13 @@
 import os
 import sys
-
-from fastapi_websocket_rpc import logger
-
-import asyncio
-from multiprocessing import Process
-import requests
-
 import pytest
+import asyncio
 import uvicorn
-from fastapi import APIRouter, FastAPI
+import requests
+from multiprocessing import Process
+
+from fastapi import FastAPI
+from fastapi_websocket_rpc import logger
 from fastapi_websocket_rpc.logger import get_logger
 from fastapi_websocket_rpc.utils import gen_uid
 from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient, Subscription, Topic
