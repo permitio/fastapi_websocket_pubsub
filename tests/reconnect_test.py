@@ -1,26 +1,3 @@
-# import os
-# import sys
-# import pytest
-# import uvicorn
-# import asyncio
-# from fastapi import FastAPI
-# from multiprocessing import Process, Value
-
-# from fastapi_websocket_rpc import RpcChannel, logger
-# from fastapi_websocket_rpc.utils import gen_uid
-# from fastapi_websocket_rpc.logger import get_logger
-# from fastapi_websocket_rpc.rpc_channel import RpcChannelClosedException
-
-# # Add parent path to use local src as package for tests
-# sys.path.append(
-#     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
-# )
-# from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient
-
-
-# logger.logging_config.set_mode(logger.LoggingModes.UVICORN)
-
-# logger = get_logger("Test")
 import os
 import sys
 import pytest
