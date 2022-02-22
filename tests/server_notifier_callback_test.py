@@ -39,12 +39,6 @@ async def verify_permitted_topics(topics, channel):
         )
 
 
-async def check_claims(websocket: WebSocket, x_token: str = Header(...)):
-    if x_token != "secret":
-        await websocket.close(403)
-    return x_token
-
-
 def setup_server():
     app = FastAPI()
     # PubSub websocket endpoint

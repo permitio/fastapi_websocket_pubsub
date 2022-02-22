@@ -6,7 +6,7 @@ import asyncio
 from fastapi import FastAPI
 from multiprocessing import Process, Value
 
-from fastapi_websocket_rpc import RpcChannel
+from fastapi_websocket_rpc import RpcChannel, logger
 from fastapi_websocket_rpc.utils import gen_uid
 from fastapi_websocket_rpc.logger import get_logger
 from fastapi_websocket_rpc.rpc_channel import RpcChannelClosedException
@@ -18,7 +18,7 @@ sys.path.append(
 from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient
 
 
-# logger.logging_config.set_mode(logger.LoggingModes.UVICORN)
+logger.logging_config.set_mode(logger.LoggingModes.UVICORN)
 
 logger = get_logger("Test")
 
