@@ -3,29 +3,22 @@ Pattern:
         Publishing-Client -> PubSubServer -> Subscribing->Client
 
 """
-
 import os
 import sys
-
-from fastapi_websocket_rpc import logger
-
+import pytest
+import uvicorn
 import asyncio
 from multiprocessing import Process, Event as ProcEvent
 
-import pytest
-import uvicorn
 from fastapi import APIRouter, FastAPI
 
-
 from fastapi_websocket_rpc.logger import get_logger
-from fastapi_websocket_rpc.utils import gen_uid
-from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient
-
 
 # Add parent path to use local src as package for tests
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 )
+from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient
 
 logger = get_logger("Test")
 

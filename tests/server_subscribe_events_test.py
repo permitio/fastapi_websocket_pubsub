@@ -1,21 +1,17 @@
 import os
 import sys
+import pytest
+import asyncio
 
 from fastapi_websocket_rpc import logger
-
-from fastapi_websocket_pubsub.event_notifier import EventNotifier
-
-import asyncio
-from multiprocessing import Process
-
-import pytest
-
-from fastapi_websocket_pubsub import Subscription
 
 # Add parent path to use local src as package for tests
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 )
+from fastapi_websocket_pubsub import Subscription
+from fastapi_websocket_pubsub.event_notifier import EventNotifier
+
 
 TOPIC = "event/has-been-processed"
 SUB_ID = "test"

@@ -7,14 +7,14 @@ import requests
 from multiprocessing import Process
 
 from fastapi import FastAPI, HTTPException, WebSocket, Header
-from fastapi_websocket_rpc import logger
 from fastapi_websocket_rpc.logger import get_logger
-from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient
 
 # Add parent path to use local src as package for tests
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 )
+from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient
+
 
 logger = get_logger("Test")
 
@@ -105,7 +105,7 @@ async def server_subscribe_to_topic(server, is_topic_permitted):
         if is_topic_permitted:
             await asyncio.wait_for(finish.wait(), 5)
         else:
-            await asyncio.sleep(5)
+            await asyncio.sleep(1)
             assert not finish.is_set()
 
 

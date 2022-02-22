@@ -1,25 +1,23 @@
 import os
 import sys
-
-from fastapi_websocket_rpc import logger
-from fastapi_websocket_rpc.rpc_channel import RpcChannel
-
-import asyncio
-from multiprocessing import Process
-import requests
-
 import pytest
 import uvicorn
-from fastapi import APIRouter, FastAPI
-from fastapi_websocket_rpc.logger import get_logger
+import asyncio
+import requests
+from fastapi import FastAPI
+from multiprocessing import Process
+
 from fastapi_websocket_rpc.utils import gen_uid
-from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient, Subscription
-from fastapi_websocket_pubsub.event_notifier import ALL_TOPICS
+from fastapi_websocket_rpc.logger import get_logger
+from fastapi_websocket_rpc.rpc_channel import RpcChannel
 
 # Add parent path to use local src as package for tests
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 )
+from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient
+from fastapi_websocket_pubsub.event_notifier import ALL_TOPICS
+
 logger = get_logger("Test")
 
 # Configurable

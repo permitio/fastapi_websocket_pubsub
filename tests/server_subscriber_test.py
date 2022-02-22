@@ -7,15 +7,13 @@ import requests
 from multiprocessing import Process
 
 from fastapi import FastAPI
-from fastapi_websocket_rpc import logger
 from fastapi_websocket_rpc.logger import get_logger
-from fastapi_websocket_rpc.utils import gen_uid
-from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient, Subscription, Topic
 
 # Add parent path to use local src as package for tests
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 )
+from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient, Subscription
 
 logger = get_logger("Test")
 
