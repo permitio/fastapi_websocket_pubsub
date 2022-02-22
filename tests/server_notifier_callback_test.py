@@ -99,7 +99,7 @@ async def server_subscribe_to_topic(server, is_topic_permitted):
         if is_topic_permitted:
             await asyncio.wait_for(finish.wait(), 5)
         else:
-            await asyncio.sleep(1)
+            await asyncio.sleep(5)
             assert not finish.is_set()
 
 
