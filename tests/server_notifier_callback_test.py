@@ -117,3 +117,29 @@ async def test_server_subscribe_to_restricted_topic(server):
 @pytest.mark.asyncio
 async def test_server_subscribe_to_permitted_topic(server):
     await server_subscribe_to_topic(server, True)
+
+
+async def server_publish_to_topic(server, is_topic_permitted):
+    # Create a client and subscribe to topics
+    async with PubSubClient(
+        extra_headers={"headers": {"claims": {"permitted_topics": ["t1", "t2"]}}}
+    ) as client:
+        # start listentining
+        client.start_client(uri)
+        # wait for the client to be ready to receive events
+        await client.wait_until_ready()
+
+        result = await client.publish(
+            ["t1" if is_topic_permitted else "t3"], data=DATA, sync=True
+        )
+        assert result.result == is_topic_permitted
+
+
+@pytest.mark.asyncio
+async def test_server_publish_to_restricted_topic(server):
+    await server_publish_to_topic(server, False)
+
+
+@pytest.mark.asyncio
+async def test_server_publish_to_permitted_topic(server):
+    await server_publish_to_topic(server, True)
