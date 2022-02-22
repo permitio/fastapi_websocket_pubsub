@@ -1,24 +1,21 @@
 import os
 import sys
+import pytest
+import uvicorn
+import asyncio
+import requests
+from fastapi import FastAPI
+from multiprocessing import Process
 
-from fastapi_websocket_rpc import logger
+from fastapi_websocket_rpc.utils import gen_uid
+from fastapi_websocket_rpc.logger import get_logger
 from fastapi_websocket_rpc.rpc_channel import RpcChannel
 
 # Add parent path to use local src as package for tests
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
-
-import asyncio
-from multiprocessing import Process
-import requests
-
-import pytest
-import uvicorn
-from fastapi import APIRouter, FastAPI
-
-
-from fastapi_websocket_rpc.logger import get_logger
-from fastapi_websocket_rpc.utils import gen_uid
-from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient, Subscription
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
+)
+from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient
 from fastapi_websocket_pubsub.event_notifier import ALL_TOPICS
 
 logger = get_logger("Test")
@@ -34,26 +31,30 @@ EVENT_TOPIC = "event/has-happened"
 
 REMOTE_ID_ANSWER_TOPIC = "client/my-remote-id"
 
-def setup_server_rest_routes(app, endpoint: PubSubEndpoint, remote_id_event: asyncio.Event):
 
-        @app.get("/trigger")
-        async def trigger_events():
-            logger.info("Triggered via HTTP route - publishing event")
-            # Publish an event named 'steel'
-            # Since we are calling back (RPC) to the client- this would deadlock if we wait on it
-            asyncio.create_task(endpoint.publish([EVENT_TOPIC], data=DATA))
-            return "triggered"
+def setup_server_rest_routes(
+    app, endpoint: PubSubEndpoint, remote_id_event: asyncio.Event
+):
+    @app.get("/trigger")
+    async def trigger_events():
+        logger.info("Triggered via HTTP route - publishing event")
+        # Publish an event named 'steel'
+        # Since we are calling back (RPC) to the client- this would deadlock if we wait on it
+        asyncio.create_task(endpoint.publish([EVENT_TOPIC], data=DATA))
+        return "triggered"
 
-        @app.get("/ask-remote-id")
-        async def trigger_events():
-            logger.info("Got asked if i have the remote id")
-            answer = "yes" if remote_id_event.is_set() else "no"
-            asyncio.create_task(endpoint.publish([REMOTE_ID_ANSWER_TOPIC], {"answer": answer}))
-            return {"answer": answer}
+    @app.get("/ask-remote-id")
+    async def trigger_events():
+        logger.info("Got asked if i have the remote id")
+        answer = "yes" if remote_id_event.is_set() else "no"
+        asyncio.create_task(
+            endpoint.publish([REMOTE_ID_ANSWER_TOPIC], {"answer": answer})
+        )
+        return {"answer": answer}
 
 
 def setup_server():
-    app =  FastAPI()
+    app = FastAPI()
     remote_id_ok = asyncio.Event()
 
     async def try_to_get_remote_id(channel: RpcChannel):
@@ -84,7 +85,8 @@ def server():
     proc = Process(target=setup_server, args=(), daemon=True)
     proc.start()
     yield proc
-    proc.kill() # Cleanup after test
+    proc.kill()  # Cleanup after test
+
 
 @pytest.mark.asyncio
 async def test_subscribe_http_trigger_with_remote_id_on(server):
@@ -96,9 +98,11 @@ async def test_subscribe_http_trigger_with_remote_id_on(server):
     finish = asyncio.Event()
     # Create a client and subscribe to topics
     async with PubSubClient() as client:
+
         async def on_event(data, topic):
             assert data == DATA
             finish.set()
+
         # subscribe for the event
         client.subscribe(EVENT_TOPIC, on_event)
         # start listentining
@@ -108,7 +112,8 @@ async def test_subscribe_http_trigger_with_remote_id_on(server):
         # trigger the server via an HTTP route
         requests.get(trigger_url)
         # wait for finish trigger
-        await asyncio.wait_for(finish.wait(),5)
+        await asyncio.wait_for(finish.wait(), 5)
+
 
 @pytest.mark.asyncio
 async def test_pub_sub_with_remote_id_on(server):
@@ -120,9 +125,11 @@ async def test_pub_sub_with_remote_id_on(server):
     finish = asyncio.Event()
     # Create a client and subscribe to topics
     async with PubSubClient() as client:
+
         async def on_event(data, topic):
             assert data == DATA
             finish.set()
+
         # subscribe for the event
         client.subscribe(EVENT_TOPIC, on_event)
         # start listentining
@@ -130,10 +137,13 @@ async def test_pub_sub_with_remote_id_on(server):
         # wait for the client to be ready to receive events
         await client.wait_until_ready()
         # publish events (with sync=False toa void deadlocks waiting on the publish to ourselves)
-        published = await client.publish([EVENT_TOPIC], data=DATA, sync=False, notifier_id=gen_uid())
-        assert published.result == True
+        published = await client.publish(
+            [EVENT_TOPIC], data=DATA, sync=False, notifier_id=gen_uid()
+        )
+        assert published.result
         # wait for finish trigger
-        await asyncio.wait_for(finish.wait(),5)
+        await asyncio.wait_for(finish.wait(), 5)
+
 
 @pytest.mark.asyncio
 async def test_pub_sub_with_all_topics_with_remote_id_on(server):
@@ -145,9 +155,11 @@ async def test_pub_sub_with_all_topics_with_remote_id_on(server):
     finish = asyncio.Event()
     # Create a client and subscribe to topics
     async with PubSubClient() as client:
+
         async def on_event(data, topic):
             assert data == DATA
             finish.set()
+
         # subscribe for the event
         client.subscribe(ALL_TOPICS, on_event)
         # start listentining
@@ -155,10 +167,12 @@ async def test_pub_sub_with_all_topics_with_remote_id_on(server):
         # wait for the client to be ready to receive events
         await client.wait_until_ready()
         # publish events (with sync=False toa void deadlocks waiting on the publish to ourselves)
-        published = await client.publish([EVENT_TOPIC], data=DATA, sync=False, notifier_id=gen_uid())
-        assert published.result == True
+        published = await client.publish(
+            [EVENT_TOPIC], data=DATA, sync=False, notifier_id=gen_uid()
+        )
+        assert published.result
         # wait for finish trigger
-        await asyncio.wait_for(finish.wait(),5)
+        await asyncio.wait_for(finish.wait(), 5)
 
 
 @pytest.mark.asyncio
@@ -172,6 +186,7 @@ async def test_getting_remote_id(server):
 
     # Create a client and subscribe to topics
     async with PubSubClient() as client:
+
         async def on_event(data, topic):
             assert data == DATA
             finish.set()
@@ -190,13 +205,13 @@ async def test_getting_remote_id(server):
         # trigger the server via an HTTP route
         requests.get(trigger_url)
         # wait for finish trigger
-        await asyncio.wait_for(finish.wait(),5)
+        await asyncio.wait_for(finish.wait(), 5)
         # sleep so that the server can finish getting the remote id
         await asyncio.sleep(1)
         # ask the server if he got the remote id
         # will trigger the REMOTE_ID_ANSWER_TOPIC topic and the on_answer() callback
         requests.get(ask_remote_id_url)
-        await asyncio.wait_for(remote_id_yes.wait(),5)
+        await asyncio.wait_for(remote_id_yes.wait(), 5)
         # the client can also try to get it's remote id
         # super ugly but it's working:
         my_remote_id = await client._rpc_channel._get_other_channel_id()

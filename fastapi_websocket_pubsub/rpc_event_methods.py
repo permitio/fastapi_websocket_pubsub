@@ -6,7 +6,7 @@ from .logger import get_logger
 
 class RpcEventServerMethods(RpcMethodsBase):
 
-    def __init__(self, event_notifier: EventNotifier, rpc_channel_get_remote_id: bool=False):
+    def __init__(self, event_notifier: EventNotifier, rpc_channel_get_remote_id: bool = False):
         super().__init__()
         self.event_notifier = event_notifier
         self._rpc_channel_get_remote_id = rpc_channel_get_remote_id
@@ -23,25 +23,27 @@ class RpcEventServerMethods(RpcMethodsBase):
                 # remove the actual function
                 sub = subscription.copy(exclude={"callback"})
                 self.logger.info("Notifying other side: {}".format({"subscriber_id": subscription.subscriber_id, "subscription_id": subscription.id, "topic": subscription.topic}),
-                                 {"subscription":subscription,
-                                 "data":data, "channel_id": self.channel.id})
+                                 {"subscription": subscription,
+                                 "data": data, "channel_id": self.channel.id})
                 await self.channel.other.notify(subscription=sub, data=data)
 
             if self._rpc_channel_get_remote_id:
                 # We'll use the remote channel id as our subscriber id
                 channel_other_channel_id = await self.channel.get_other_channel_id()
                 if channel_other_channel_id is None:
-                    self.logger.warning("could not fetch remote channel id, using local channel id to subscribe")
+                    self.logger.warning(
+                        "could not fetch remote channel id, using local channel id to subscribe")
                     sub_id = self.channel.id
                 else:
                     sub_id = channel_other_channel_id
             else:
                 # We'll use our channel id as our subscriber id
                 sub_id = self.channel.id
-            await self.event_notifier.subscribe(sub_id, topics, callback)
+            await self.event_notifier.subscribe(sub_id, topics, callback, self.channel)
             return True
         except Exception as err:
-            self.logger.exception("Failed to subscribe to RPC events notifier", topics)
+            self.logger.exception(
+                "Failed to subscribe to RPC events notifier", topics)
             return False
 
     async def publish(self, topics: TopicList = [], data=None, sync=True, notifier_id=None) -> bool:
@@ -61,14 +63,15 @@ class RpcEventServerMethods(RpcMethodsBase):
         try:
             # use the given id or use our channel id
             notifier_id = notifier_id if notifier_id is not None else self.channel.id
-            promise = self.event_notifier.notify(topics, data, notifier_id=notifier_id)
+            promise = self.event_notifier.notify(
+                topics, data, notifier_id=notifier_id, channel=self.channel)
             if sync:
                 await promise
             else:
                 asyncio.create_task(promise)
             return True
         except Exception as err:
-            self.logger.error("Failed to publish to events notifier",topics)
+            self.logger.error("Failed to publish to events notifier", topics)
             return False
 
     async def ping(self) -> str:
@@ -84,5 +87,5 @@ class RpcEventClientMethods(RpcMethodsBase):
 
     async def notify(self, subscription=None, data=None):
         self.logger.info("Received notification of event",
-                         {'subscription':subscription, 'data':data})
+                         {'subscription': subscription, 'data': data})
         await self.client.trigger_topic(topic=subscription["topic"], data=data)
