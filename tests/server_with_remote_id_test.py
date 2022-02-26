@@ -72,7 +72,7 @@ def setup_server():
 
     # PubSub websocket endpoint - setting up the server with remote id
     endpoint = PubSubEndpoint(rpc_channel_get_remote_id=True, on_connect=[on_connect])
-    endpoint.register_route(app, "/pubsub")
+    endpoint.register_route(app, path="/pubsub")
 
     # Regular REST endpoint - that publishes to PubSub
     setup_server_rest_routes(app, endpoint, remote_id_ok)
