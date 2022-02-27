@@ -38,7 +38,7 @@ def setup_server():
     router = APIRouter()
     # PubSub websocket endpoint
     endpoint = PubSubEndpoint()
-    endpoint.register_route(router, "/pubsub")
+    endpoint.register_route(router, path="/pubsub")
     app.include_router(router)
     uvicorn.run(app, port=PORT)
 

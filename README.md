@@ -53,7 +53,7 @@ FastAPI + WebSockets + PubSub ==  ⚡💪 ❤️
         ```python
         app = FastAPI() 
         endpoint = PubSubEndpoint()
-        endpoint.register_route(app, "/pubsub")
+        endpoint.register_route(app, path="/pubsub")
         endpoint.publish(["my_event_topic"], data=["my", "data", 1])
         ```
     - From client to client (through the servers)

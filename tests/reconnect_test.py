@@ -55,7 +55,7 @@ def setup_server(disconnect_delay=0):
 
     # PubSub websocket endpoint
     endpoint = PubSubEndpoint(on_connect=[on_connect])
-    endpoint.register_route(app, "/pubsub")
+    endpoint.register_route(app, path="/pubsub")
     uvicorn.run(app, port=PORT)
 
 

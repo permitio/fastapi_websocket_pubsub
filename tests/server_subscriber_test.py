@@ -41,7 +41,7 @@ def setup_server():
     app = FastAPI()
     # PubSub websocket endpoint
     endpoint = PubSubEndpoint()
-    endpoint.register_route(app, "/pubsub")
+    endpoint.register_route(app, path="/pubsub")
 
     # receive an event and publish another (this time for the client)
     async def event_callback(subscription: Subscription, data):
