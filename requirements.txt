@@ -1,3 +1,4 @@
 fastapi-websocket-rpc>=0.1.21,<1
 broadcaster>=0.2.0,<1
 pydantic>=1.9.1,<2
+websockets>=10.3,<11
