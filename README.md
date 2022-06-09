@@ -69,8 +69,7 @@ FastAPI + WebSockets + PubSub ==  ⚡💪 ❤️
         
         @app.websocket("/pubsub")
         async def websocket_rpc_endpoint(websocket: WebSocket):
-            async with endpoint.broadcaster:
-                await endpoint.main_loop(websocket)
+            await endpoint.main_loop(websocket)
         ```
         see [examples/pubsub_broadcaster_server_example.py](examples/pubsub_broadcaster_server_example.py) for full usage example 
 
