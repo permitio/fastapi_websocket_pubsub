@@ -1,3 +1,4 @@
+import asyncio
 from typing import Coroutine, List, Union
 
 from fastapi import WebSocket
@@ -124,7 +125,19 @@ class PubSubEndpoint:
         await self.notifier.unsubscribe(subscriber_id)
 
     async def main_loop(self, websocket: WebSocket, client_id: str = None, **kwargs):
-        await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
+        if self.broadcaster is not None:
+            async with self.broadcaster:
+                logger.debug("Entering endpoint's main loop with broadcaster")
+                done, pending = await asyncio.wait([self.endpoint.main_loop(websocket, client_id=client_id, **kwargs),
+                                                    self.broadcaster.get_reader_task()],
+                                                    return_when=asyncio.FIRST_COMPLETED)
+                for t in pending:
+                    t.cancel()
+        else:
+            logger.debug("Entering endpoint's main loop without broadcaster")
+            await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
+        
+        logger.debug("Leaving endpoint's main loop")
 
     def register_route(self, router, path="/pubsub"):
         """
