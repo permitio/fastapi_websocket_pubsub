@@ -33,13 +33,13 @@ DATA = "MAGIC"
 EVENT_TOPIC = "event/has-happened"
 
 
-def setup_pubsub_endpoint(app, endpoint: PubSubEndpoint, path: str):
+def setup_pubsub_endpoint(app, path: str):
+    endpoint = PubSubEndpoint(broadcaster="postgres://postgres:postgres@localhost:5432/")
+
     @app.websocket(path)
     async def websocket_rpc_endpoint(websocket: WebSocket):
         await endpoint.main_loop(websocket)
 
-
-def setup_trigger_endpoint_for(app, endpoint: PubSubEndpoint, path: str):
     @app.get(f"{path}/trigger")
     async def trigger_events():
         trigger_logger = logger.bind(name="trigger endpoint")
@@ -48,6 +48,8 @@ def setup_trigger_endpoint_for(app, endpoint: PubSubEndpoint, path: str):
         # Since we are calling back (RPC) to the client- this would deadlock if we wait on it
         asyncio.create_task(endpoint.publish([EVENT_TOPIC], data=DATA))
         return "triggered"
+    
+    return endpoint
 
 
 def setup_server():
@@ -55,22 +57,19 @@ def setup_server():
     sets up 2 pubsub server endpoints on the server, both connected via broadcaster
     """
     app = FastAPI()
-    first_endpoint = PubSubEndpoint(broadcaster="postgres://localhost:5432/")
-    setup_pubsub_endpoint(app, first_endpoint, path="/ws1")
-    setup_trigger_endpoint_for(app, first_endpoint, path="/ws1")
-
-    second_endpoint = PubSubEndpoint(broadcaster="postgres://localhost:5432/")
-    setup_pubsub_endpoint(app, second_endpoint, path="/ws2")
-    setup_trigger_endpoint_for(app, second_endpoint, path="/ws2")
-
+    first_endpoint = setup_pubsub_endpoint(app, path="/ws1")
+    second_endpoint = setup_pubsub_endpoint(app, path="/ws2")
+    print("Running server app")
     uvicorn.run(app, port=PORT)
 
 
 @pytest.fixture()
 def server():
     # Run the server as a separate process
+    print("Server fixture")
     proc = Process(target=setup_server, args=(), daemon=True)
     proc.start()
+    print("Server started on a deamon process")
     yield proc
     proc.kill()  # Cleanup after test
 
@@ -87,41 +86,27 @@ async def test_all_clients_get_a_topic_via_broadcast(server):
     - all servers (and clients) will get the message
     - the server that did not originally get the message will receive it via broadcast
     """
-    # finish trigger
-    client_one_got_the_message = asyncio.Event()
-    client_two_got_the_message = asyncio.Event()
+    # When both clients would recieve event, semaphore would get locked
+    sem = asyncio.Semaphore(2)
 
-    async def subscribe_to_server(server_uri: str, on_received_event: asyncio.Event, *, client_name: str, trigger_url: Optional[str] = None):
-        async with PubSubClient() as client:
-            async def on_event(data, topic):
-                assert data == DATA
+    async def on_event(data, topic):
+        logger.info(f"client received data '{data}' on topic '{topic}'")
+        assert data == DATA
+        await sem.acquire()
 
-                logger.info(f"client '{client_name}' received data '{data}' on topic '{topic}'")
-                on_received_event.set()
+    async with PubSubClient() as client1:
+        async with PubSubClient() as client2:
+            for c, uri in [(client1,first_endpoint_uri), (client2,second_endpoint_uri)]:
+                c.subscribe(EVENT_TOPIC, on_event)
+                c.start_client(uri)
+                await c.wait_until_ready()
 
-            # subscribe for the event
-            client.subscribe(EVENT_TOPIC, on_event)
-            # start listentining
-            client.start_client(server_uri)
-            # wait for the client to be ready to receive events
-            await client.wait_until_ready()
+            print("Triggering event")
+            requests.get(first_server_trigger_url)
 
-            logger.info("client ready")
+            async def wait_for_sem():
+                while not sem.locked():
+                    await asyncio.sleep(0.1)
 
-            if trigger_url:
-                requests.get(trigger_url)
-
-            # keeps the client alive for 5 seconds
-            # otherwise the __aexit__ will close the connection
-            await asyncio.sleep(10)
-
-    await asyncio.gather(*[
-        asyncio.create_task(subscribe_to_server(first_endpoint_uri, client_one_got_the_message, client_name="client1", trigger_url=first_server_trigger_url)),
-        asyncio.create_task(subscribe_to_server(second_endpoint_uri, client_two_got_the_message, client_name="client2")),
-    ])
-
-
-
-    # wait for finish trigger
-    await asyncio.wait_for(client_one_got_the_message.wait(), 5)
-    await asyncio.wait_for(client_two_got_the_message.wait(), 5)
+            print("Wait for events to be set")
+            await asyncio.wait_for(wait_for_sem(), 5)
