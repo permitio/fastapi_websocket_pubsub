@@ -22,9 +22,6 @@ class RpcEventServerMethods(RpcMethodsBase):
             async def callback(subscription: Subscription, data):
                 # remove the actual function
                 sub = subscription.copy(exclude={"callback"})
-                # self.logger.info("Notifying other side: {}".format({"subscriber_id": subscription.subscriber_id, "subscription_id": subscription.id, "topic": subscription.topic}),
-                #                  {"subscription": subscription,
-                #                  "data": data, "channel_id": self.channel.id})
                 self.logger.info(f"Notifying other side: subscription={subscription.dict(exclude={'callback'})}, data={data}, channel_id={self.channel.id}")
                 await self.channel.other.notify(subscription=sub, data=data)
 
