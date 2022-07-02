@@ -131,12 +131,13 @@ class PubSubEndpoint:
                 done, pending = await asyncio.wait([self.endpoint.main_loop(websocket, client_id=client_id, **kwargs),
                                                     self.broadcaster.get_reader_task()],
                                                     return_when=asyncio.FIRST_COMPLETED)
+                logger.debug(f"task is done: {done}")
                 for t in pending:
                     t.cancel()
         else:
             logger.debug("Entering endpoint's main loop without broadcaster")
             await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
-        
+
         logger.debug("Leaving endpoint's main loop")
 
     def register_route(self, router, path="/pubsub"):
