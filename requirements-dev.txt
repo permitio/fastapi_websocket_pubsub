@@ -3,3 +3,4 @@ pytest-asyncio
 requests
 twine
 wheel
+loguru
