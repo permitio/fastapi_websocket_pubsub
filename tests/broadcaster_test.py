@@ -35,39 +35,24 @@ EVENT_TOPIC = "event/has-happened"
 
 
 @pytest.fixture()
-def postgres():
-    """
-    runs a postgres container so that we can test the broadcaster functionality with postgres
-    """
-    logger.info(f"running the postgres container")
-    os.system('docker run -d -p 5433:5432 --name broadcastdb -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres postgres:alpine')
+def postgres(request):
+    CONTAINER_NAME = 'broadcastdb'
+    def rm_container():
+        os.system(f'docker rm -f {CONTAINER_NAME} > /dev/null 2>&1')
 
-    time.sleep(5) # wait for postgres to go up and stabilize
+    rm_container() # Make sure no previous container exists
+    
+    postgres_args = ''
+    timeout_marker = request.node.get_closest_marker("postgres_idle_timeout")
+    if timeout_marker is not None:
+        timeout = timeout_marker.args[0]
+        postgres_args = f'-c idle_session_timeout={timeout} -c idle_in_transaction_session_timeout={timeout}'
 
-    # exposing postgres url to the test
-    yield "postgres://postgres:postgres@localhost:5433/"
+    os.system(f'docker run -d -p 5432:5432 --name {CONTAINER_NAME} -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres postgres:alpine {postgres_args} > /dev/null 2>&1')
+    time.sleep(5)
 
-    logger.info("stopping the container and cleaning up")
-    os.system("docker stop broadcastdb")
-    os.system("docker rm -f broadcastdb")
-
-
-# @pytest.fixture()
-# def postgres_with_idle_session_timeout():
-#     os.system("docker rm -f broadcastdb")
-#     os.system('docker run -i --rm postgres:alpine cat /usr/local/share/postgresql/postgresql.conf.sample > postgres.conf')
-
-#     # Set idle timeout of 5s in order to test completion of reader task
-#     with open("postgres.conf", "a") as conf:
-#         conf.writelines(["idle_session_timeout=5000",
-#                          "idle_in_transaction_session_timeout=5000"])
-
-#     os.system('docker run -d -p 5433:5432 --name broadcastdb -v "$PWD/postgres.conf":/etc/postgresql/postgresql.conf -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres postgres:alpine')
-
-#     yield "postgres://postgres:postgres@localhost:5433/"
-
-#     os.system("docker rm -f broadcastdb")
-
+    yield "postgres://postgres:postgres@localhost:5432/"
+    rm_container()
 
 def setup_pubsub_endpoint(app: FastAPI, broadcast_url: str, path: str):
     """
@@ -84,12 +69,13 @@ def setup_pubsub_endpoint(app: FastAPI, broadcast_url: str, path: str):
 
     @app.get(f"{path}/trigger")
     async def trigger_events():
-        logger.info(f"[{path}/trigger endpoint] Triggered via HTTP route - publishing event to {path}")
+        trigger_logger = logger.bind(name="trigger endpoint")
+        trigger_logger.info(f"Triggered via HTTP route - publishing event to {path}")
         # Publish an event named 'steel'
         # Since we are calling back (RPC) to the client- this would deadlock if we wait on it
         asyncio.create_task(endpoint.publish([EVENT_TOPIC], data=DATA))
         return "triggered"
-
+    
     return endpoint
 
 
@@ -97,28 +83,24 @@ def setup_server(broadcast_url):
     """
     sets up 2 pubsub server endpoints on the server, both connected via broadcaster
     """
-    print("Running server app")
     app = FastAPI()
     setup_pubsub_endpoint(app, broadcast_url, path="/ws1")
     setup_pubsub_endpoint(app, broadcast_url, path="/ws2")
+    logger.info("Running server app")
     uvicorn.run(app, port=PORT)
-
-
-
 
 @pytest.fixture()
 def server(postgres):
     # Run the server as a separate process
-    print("Server fixture")
     proc = Process(target=setup_server, args=(postgres, ), daemon=True)
     proc.start()
-    print("Server started on a deamon process")
+    logger.info("Server started on a deamon process")
     yield proc
     proc.kill()  # Cleanup after test
 
 
 @pytest.mark.asyncio
-async def test_all_clients_get_a_topic_via_broadcast(server):
+async def test_all_clients_get_a_topic_via_broadcast(server, repeats=1, interval=0):
     """
     if:
     - 2 clients are subscribed to 2 servers (on the same topic)
@@ -144,35 +126,38 @@ async def test_all_clients_get_a_topic_via_broadcast(server):
                 c.start_client(uri)
                 await c.wait_until_ready()
 
-            print("Triggering event")
-            requests.get(first_server_trigger_url)
+            for repeat in range(repeats):
+                logger.info("Triggering event")
+                requests.get(first_server_trigger_url)
 
-            async def wait_for_sem():
-                while not sem.locked():
-                    await asyncio.sleep(0.1)
+                async def wait_for_sem():
+                    while not sem.locked():
+                        await asyncio.sleep(0.1)
 
-            print("Wait for events to be set")
-            await asyncio.wait_for(wait_for_sem(), 5)
+                logger.info("Wait for events to be set")
+                await asyncio.wait_for(wait_for_sem(), 5)
+                
+                for _ in range(2):
+                    # Clean semaphore before next round
+                    sem.release()
 
-# @pytest.mark.asyncio
-# async def test_ws_closes_on_pg_broadcaster_disconnect(server):
-#     """
-#     if:
-#     - A client is connected via websocket to a server
-#     - The server is connected to a broadcaster backed by postgresql DB
-#     - The server <-> DB connection gets disconnected
-
-#     then:
-#     - Websocket connection between client and server should close
-#     """
-#     # TODO: This should use a different postgres DB that has 3s idle timeout
-
-#     async def on_event(data, topic):
-#         logger.info(f"client received data '{data}' on topic '{topic}'")
-
-#     async with PubSubClient(topics=[EVENT_TOPIC], callback=on_event, server_uri=first_endpoint_uri) as c:
-#         done, pending = await asyncio.wait([c._run_task], timeout=10)
-#         # assert c._run_task in done
-#         assert c._run_task in pending # This is without the fix
+                if repeat + 1 < repeats:
+                    await asyncio.sleep(interval)
 
 
+@pytest.mark.postgres_idle_timeout(3000)
+@pytest.mark.asyncio
+async def test_ws_closes_on_pg_broadcaster_disconnect(server):
+    """
+    if:
+    - 2 clients are subscribed to 2 servers (on the same topic)
+    - the 2 servers are connected via broadcast (backed by a postgres DB)
+    - one server receives a message on this topic
+    - the servers are disconnected from the broadcaster due to idle timeout
+    - one server receives another message on this topic
+
+    then:
+    - all servers (and clients) will get both of the messages
+    """
+    await test_all_clients_get_a_topic_via_broadcast(server, repeats=3, interval=4)
+    
