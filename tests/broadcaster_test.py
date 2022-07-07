@@ -147,7 +147,7 @@ async def test_all_clients_get_a_topic_via_broadcast(server, repeats=1, interval
 
 @pytest.mark.postgres_idle_timeout(3000)
 @pytest.mark.asyncio
-async def test_ws_closes_on_pg_broadcaster_disconnect(server):
+async def test_idle_pg_broadcaster_disconnect(server):
     """
     if:
     - 2 clients are subscribed to 2 servers (on the same topic)
