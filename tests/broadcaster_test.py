@@ -61,7 +61,7 @@ def setup_pubsub_endpoint(app: FastAPI, broadcast_url: str, path: str):
     - a trigger endpoint that causes the pub/sub server to publish a message on a predefined topic
     """
     logger.info(f"[{path} endpoint] connecting to broadcast backbone service on '{broadcast_url}'")
-    endpoint = PubSubEndpoint(broadcaster=broadcast_url)
+    endpoint = PubSubEndpoint(broadcaster=broadcast_url, ignore_broadcaster_disconnected=False)
 
     @app.websocket(path)
     async def websocket_rpc_endpoint(websocket: WebSocket):
