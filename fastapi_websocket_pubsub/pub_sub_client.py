@@ -207,6 +207,8 @@ class PubSubClient:
                             ):
                                 await task
                                 break
+                            if not self._disconnect_signal.is_set():
+                                logger.info(f"Connection gracefully closed by server -- Trying to reconnect.")
                     except websockets.exceptions.WebSocketException as err:
                         logger.info(
                             f"Connection failed with - {err}. -- Trying to reconnect."
