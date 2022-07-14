@@ -32,7 +32,8 @@ second_endpoint_uri = f"ws://localhost:{PORT}/ws2"
 
 DATA = "MAGIC"
 EVENT_TOPIC = "event/has-happened"
-
+PG_HOST_PORT = 25432
+PG_SLEEP_TIME = 10
 
 @pytest.fixture()
 def postgres(request):
@@ -41,17 +42,20 @@ def postgres(request):
         os.system(f'docker rm -f {CONTAINER_NAME} > /dev/null 2>&1')
 
     rm_container() # Make sure no previous container exists
-    
+
     postgres_args = ''
     timeout_marker = request.node.get_closest_marker("postgres_idle_timeout")
     if timeout_marker is not None:
         timeout = timeout_marker.args[0]
         postgres_args = f'-c idle_session_timeout={timeout} -c idle_in_transaction_session_timeout={timeout}'
 
-    os.system(f'docker run -d -p 5432:5432 --name {CONTAINER_NAME} -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres postgres:alpine {postgres_args} > /dev/null 2>&1')
-    time.sleep(5)
 
-    yield "postgres://postgres:postgres@localhost:5432/"
+    logger.info(f"running postgres on host port {PG_HOST_PORT}...")
+    os.system(f'docker run -d -p {PG_HOST_PORT}:5432 --name {CONTAINER_NAME} -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres postgres:alpine {postgres_args} > /dev/null 2>&1')
+    logger.info(f"Sleeping for {PG_SLEEP_TIME} seconds so postgres could stabilize")
+    time.sleep(PG_SLEEP_TIME)
+
+    yield f"postgres://postgres:postgres@localhost:{PG_HOST_PORT}/"
     rm_container()
 
 def setup_pubsub_endpoint(app: FastAPI, broadcast_url: str, path: str):
@@ -75,7 +79,7 @@ def setup_pubsub_endpoint(app: FastAPI, broadcast_url: str, path: str):
         # Since we are calling back (RPC) to the client- this would deadlock if we wait on it
         asyncio.create_task(endpoint.publish([EVENT_TOPIC], data=DATA))
         return "triggered"
-    
+
     return endpoint
 
 
@@ -136,7 +140,7 @@ async def test_all_clients_get_a_topic_via_broadcast(server, repeats=1, interval
 
                 logger.info("Wait for events to be set")
                 await asyncio.wait_for(wait_for_sem(), 5)
-                
+
                 for _ in range(2):
                     # Clean semaphore before next round
                     sem.release()
@@ -160,4 +164,4 @@ async def test_idle_pg_broadcaster_disconnect(server):
     - all servers (and clients) will get both of the messages
     """
     await test_all_clients_get_a_topic_via_broadcast(server, repeats=3, interval=4)
-    
+
