@@ -222,6 +222,9 @@ class EventBroadcaster:
         self._subscription_task = asyncio.create_task(
             self.__read_notifications__())
         return self._subscription_task
+    
+    def get_reader_task(self):
+        return self._subscription_task
 
     async def __read_notifications__(self):
         """

@@ -30,8 +30,7 @@ endpoint = PubSubEndpoint(broadcaster="postgres://localhost:5432/")
 
 @router.websocket("/pubsub")
 async def websocket_rpc_endpoint(websocket: WebSocket):
-    async with endpoint.broadcaster:
-        await endpoint.main_loop(websocket)
+    await endpoint.main_loop(websocket)
 
 app.include_router(router)
 

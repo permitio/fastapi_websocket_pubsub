@@ -1,3 +1,4 @@
+import asyncio
 from typing import Coroutine, List, Union
 
 from fastapi import WebSocket
@@ -33,6 +34,7 @@ class PubSubEndpoint:
         on_connect: List[Coroutine] = None,
         on_disconnect: List[Coroutine] = None,
         rpc_channel_get_remote_id: bool = False,
+        ignore_broadcaster_disconnected = True,
     ):
         """
         The PubSub endpoint recives subscriptions from clients and publishes data back to them upon receiving relevant publications.
@@ -54,6 +56,7 @@ class PubSubEndpoint:
 
             on_connect (List[Coroutine]): callbacks on connection being established (each callback is called with the channel)
             on_disconnect (List[Coroutine]): callbacks on connection termination (each callback is called with the channel)
+            ignore_broadcaster_disconnected: Don't end main loop if broadcaster's reader task ends (due to underlying disconnection)
         """
         self.notifier = (
             notifier if notifier is not None else WebSocketRpcEventNotifier()
@@ -81,6 +84,7 @@ class PubSubEndpoint:
         self._id = self.notifier.gen_subscriber_id()
         # Separate if for the server to subscribe to its own events
         self._subscriber_id: str = self.notifier.gen_subscriber_id()
+        self._ignore_broadcaster_disconnected = ignore_broadcaster_disconnected
 
     async def subscribe(
         self, topics: Union[TopicList, ALL_TOPICS], callback: EventCallback
@@ -124,7 +128,23 @@ class PubSubEndpoint:
         await self.notifier.unsubscribe(subscriber_id)
 
     async def main_loop(self, websocket: WebSocket, client_id: str = None, **kwargs):
-        await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
+        if self.broadcaster is not None:
+            async with self.broadcaster:
+                logger.debug("Entering endpoint's main loop with broadcaster")
+                if self._ignore_broadcaster_disconnected:
+                    await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
+                else:        
+                    done, pending = await asyncio.wait([self.endpoint.main_loop(websocket, client_id=client_id, **kwargs),
+                                                        self.broadcaster.get_reader_task()],
+                                                        return_when=asyncio.FIRST_COMPLETED)
+                    logger.debug(f"task is done: {done}")
+                    for t in pending:
+                        t.cancel()
+        else:
+            logger.debug("Entering endpoint's main loop without broadcaster")
+            await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
+
+        logger.debug("Leaving endpoint's main loop")
 
     def register_route(self, router, path="/pubsub"):
         """
