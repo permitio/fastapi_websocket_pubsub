@@ -107,7 +107,7 @@ async def on_trigger(data):
 
 async with PubSubClient(server_uri="ws://localhost/pubsub") as client:
     # Subscribe for the event 
-    client.subscribe("triggered", on_event)
+    client.subscribe("triggered", on_trigger)
 
 ```
 
