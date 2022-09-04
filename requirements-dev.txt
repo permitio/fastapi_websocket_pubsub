@@ -4,3 +4,4 @@ requests
 twine
 wheel
 loguru
+uvicorn
