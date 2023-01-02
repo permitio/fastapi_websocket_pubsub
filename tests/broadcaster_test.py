@@ -98,11 +98,15 @@ def server(postgres):
     # Run the server as a separate process
     proc = Process(target=setup_server, args=(postgres, ), daemon=True)
     proc.start()
-    logger.info("Server started on a deamon process")
+    logger.info("Server started on a daemon process")
     yield proc
     proc.kill()  # Cleanup after test
 
 
+
+skip_unless_requested = pytest.mark.skipif(os.environ.get('TEST_BROADCAST') is None, reason="Not configured to test for broadcast (requires Postgres) | enable with TEST_BROADCAST=1")
+
+@skip_unless_requested
 @pytest.mark.asyncio
 async def test_all_clients_get_a_topic_via_broadcast(server, repeats=1, interval=0):
     """
@@ -115,7 +119,7 @@ async def test_all_clients_get_a_topic_via_broadcast(server, repeats=1, interval
     - all servers (and clients) will get the message
     - the server that did not originally get the message will receive it via broadcast
     """
-    # When both clients would recieve event, semaphore would get locked
+    # When both clients would receive event, semaphore would get locked
     sem = asyncio.Semaphore(2)
 
     async def on_event(data, topic):
@@ -148,7 +152,7 @@ async def test_all_clients_get_a_topic_via_broadcast(server, repeats=1, interval
                 if repeat + 1 < repeats:
                     await asyncio.sleep(interval)
 
-
+@skip_unless_requested
 @pytest.mark.postgres_idle_timeout(3000)
 @pytest.mark.asyncio
 async def test_idle_pg_broadcaster_disconnect(server):
