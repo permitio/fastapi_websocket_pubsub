@@ -12,7 +12,9 @@ on:
 
 jobs:
   build:
-
+    env:
+      TEST_BROADCSAT: "1"
+        
     runs-on: ubuntu-latest
     strategy:
       matrix:
