@@ -1,4 +1,4 @@
-fastapi-websocket-rpc==0.1.23
+fastapi-websocket-rpc==0.1.22
 permit-broadcaster[redis,postgres,kafka]>=0.2.0,<1
 pydantic>=1.9.1,<2
 websockets>=10.3,<11
