@@ -6,9 +6,9 @@ name: Tests
 on:
   workflow_dispatch:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches: [ rk/pg_in_tests ]
+  # pull_request:
+  #   branches: [ master ]
 
 jobs:
   build:
