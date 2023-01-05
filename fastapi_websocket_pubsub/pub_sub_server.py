@@ -133,8 +133,11 @@ class PubSubEndpoint:
                 logger.debug("Entering endpoint's main loop with broadcaster")
                 if self._ignore_broadcaster_disconnected:
                     await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
-                else:        
-                    done, pending = await asyncio.wait([self.endpoint.main_loop(websocket, client_id=client_id, **kwargs),
+                else:
+                    main_loop_task = asyncio.create_task(
+                        self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
+                    )
+                    done, pending = await asyncio.wait([main_loop_task,
                                                         self.broadcaster.get_reader_task()],
                                                         return_when=asyncio.FIRST_COMPLETED)
                     logger.debug(f"task is done: {done}")

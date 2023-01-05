@@ -5,6 +5,8 @@ import pytest
 import asyncio
 import uvicorn
 import requests
+import random
+import string
 
 from fastapi import FastAPI
 from starlette.websockets import WebSocket
@@ -37,7 +39,10 @@ PG_SLEEP_TIME = 10
 
 @pytest.fixture()
 def postgres(request):
-    CONTAINER_NAME = 'broadcastdb'
+    CONTAINER_NAME = "broadcastdb" + "".join(
+        [random.choice(string.ascii_letters) for _ in range(8)]
+    )
+
     def rm_container():
         os.system(f'docker rm -f {CONTAINER_NAME} > /dev/null 2>&1')
 
@@ -55,8 +60,10 @@ def postgres(request):
     logger.info(f"Sleeping for {PG_SLEEP_TIME} seconds so postgres could stabilize")
     time.sleep(PG_SLEEP_TIME)
 
-    yield f"postgres://postgres:postgres@localhost:{PG_HOST_PORT}/"
-    rm_container()
+    try:
+        yield f"postgres://postgres:postgres@localhost:{PG_HOST_PORT}/"
+    finally:
+        rm_container()
 
 def setup_pubsub_endpoint(app: FastAPI, broadcast_url: str, path: str):
     """
@@ -103,10 +110,6 @@ def server(postgres):
     proc.kill()  # Cleanup after test
 
 
-
-skip_unless_requested = pytest.mark.skipif(os.environ.get('TEST_BROADCAST') is None, reason="Not configured to test for broadcast (requires Postgres) | enable with TEST_BROADCAST=1")
-
-@skip_unless_requested
 @pytest.mark.asyncio
 async def test_all_clients_get_a_topic_via_broadcast(server, repeats=1, interval=0):
     """
@@ -152,7 +155,6 @@ async def test_all_clients_get_a_topic_via_broadcast(server, repeats=1, interval
                 if repeat + 1 < repeats:
                     await asyncio.sleep(interval)
 
-@skip_unless_requested
 @pytest.mark.postgres_idle_timeout(3000)
 @pytest.mark.asyncio
 async def test_idle_pg_broadcaster_disconnect(server):

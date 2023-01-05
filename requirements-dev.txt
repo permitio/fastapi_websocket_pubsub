@@ -5,3 +5,4 @@ twine
 wheel
 loguru
 uvicorn
+pytest-timeout
