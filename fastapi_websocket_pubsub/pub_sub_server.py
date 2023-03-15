@@ -141,8 +141,9 @@ class PubSubEndpoint:
                                                         self.broadcaster.get_reader_task()],
                                                         return_when=asyncio.FIRST_COMPLETED)
                     logger.debug(f"task is done: {done}")
-                    for t in pending:
-                        t.cancel()
+                    # broadcaster's reader task is used by other endpoints and shouldn't be cancelled
+                    if main_loop_task in pending:
+                        main_loop_task.cancel()
         else:
             logger.debug("Entering endpoint's main loop without broadcaster")
             await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
