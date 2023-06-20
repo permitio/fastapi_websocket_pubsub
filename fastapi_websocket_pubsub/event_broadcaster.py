@@ -250,7 +250,7 @@ class EventBroadcaster:
                 async for event in subscriber:
                     try:
                         notification = BroadcastNotification.parse_raw(event.message)
-                        logger.info(
+                        logger.debug(
                             "Handling incoming broadcast event: {}".format(
                                 {
                                     "topics": notification.topics,
@@ -264,3 +264,6 @@ class EventBroadcaster:
                         )
                     except:
                         logger.exception("Failed handling incoming broadcast")
+                logger.info(
+                    "No more events to read from subscriber (underlying connection closed)"
+                )
