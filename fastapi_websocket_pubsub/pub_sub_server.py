@@ -92,6 +92,26 @@ class PubSubEndpoint:
     ) -> List[Subscription]:
         return await self.notifier.subscribe(self._subscriber_id, topics, callback)
 
+    async def _publish_through_broadcaster(
+        self, topics: Union[TopicList, Topic], data=None
+    ):
+        if self._broadcaster_sharing_context is None:
+            logger.debug(f"Getting new broadcaster sharing context")
+            self._broadcaster_sharing_context = self.broadcaster.get_context(
+                listen=True, share=True
+            )
+        logger.debug(f"Acquiring broadcaster sharing context")
+        try:
+            async with self._broadcaster_sharing_context:
+                # We don't notify notifier here, broadcaster listens to its own back-channel and notifies notifier,
+                #   Thus all subscribers are notified in the same order (local and remote)
+                await self.broadcaster.__broadcast_notifications__(topics, data)
+        except Exception:
+            # Could check if the exception has to do with disconnection, but just in case better to restart sharing context anyway
+            logger.warning(f"Exception in publish, resetting sharing context")
+            self._broadcaster_sharing_context = None
+            raise
+
     async def publish(self, topics: Union[TopicList, Topic], data=None):
         """
         Publish events to subscribres of given topics currently connected to the endpoint
@@ -100,27 +120,12 @@ class PubSubEndpoint:
             topics (Union[TopicList, Topic]): topics to publish to relevant subscribers
             data (Any, optional): Event data to be passed to each subscriber. Defaults to None.
         """
-        # if we have a broadcaster make sure we share with it (no matter where this call comes from)
-        # sharing here means - the broadcaster listens in to the notifier as well
         logger.debug(f"Publishing message to topics: {topics}")
         if self.broadcaster is not None:
-            if self._broadcaster_sharing_context is None:
-                logger.debug(f"Getting new broadcaster sharing context")
-                self._broadcaster_sharing_context = self.broadcaster.get_context(
-                    listen=True, share=True
-                )
-            logger.debug(f"Acquiring broadcaster sharing context")
-            try:
-                async with self._broadcaster_sharing_context:
-                    await self.notifier.notify(topics, data, notifier_id=self._id)
-            except Exception:
-                # Could check if the exception has to do with disconnection, but just in case better to restart sharing context anyway
-                logger.warning(f"Exception in publish, resetting sharing context")
-                self._broadcaster_sharing_context = None
-                raise
-
-        # otherwise just notify
+            # Use broadcaster if available, notifier would be notified when broadcaster reads its own notification
+            await self._publish_through_broadcaster(topics, data)
         else:
+            # otherwise just notify
             await self.notifier.notify(topics, data, notifier_id=self._id)
 
     # canonical name (backward compatability)
