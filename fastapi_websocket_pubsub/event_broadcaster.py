@@ -53,10 +53,9 @@ class EventBroadcasterContextManager:
         self._event_broadcaster = event_broadcaster
         self._share: bool = share
         self._listen: bool = listen
-        self._lock = asyncio.Lock()
 
     async def __aenter__(self):
-        async with self._lock:
+        async with self._event_broadcaster._context_manager_lock:
             if self._listen:
                 self._event_broadcaster._listen_count += 1
                 if self._event_broadcaster._listen_count == 1:
@@ -85,7 +84,7 @@ class EventBroadcasterContextManager:
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        async with self._lock:
+        async with self._event_broadcaster._context_manager_lock:
             try:
                 if self._listen:
                     self._event_broadcaster._listen_count -= 1
@@ -158,6 +157,7 @@ class EventBroadcaster:
         self._share_count: int = 0
         # If we opt to manage the context directly (i.e. call async with on the event broadcaster itself)
         self._context_manager = None
+        self._context_manager_lock = asyncio.Lock()
 
     async def __broadcast_notifications__(self, subscription: Subscription, data):
         """
