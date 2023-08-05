@@ -71,7 +71,7 @@ class EventBroadcasterContextManager:
                 if self._event_broadcaster._share_count == 1:
                     # We have our first publisher
                     # Init the broadcast used for sharing (reading has its own)
-                    self._event_broadcaster._acquire_sharing_broadcast_channel()
+                    await self._event_broadcaster._acquire_sharing_broadcast_channel()
                     logger.debug(
                         "Subscribing to ALL_TOPICS, and sharing messages with broadcast channel"
                     )
@@ -103,6 +103,7 @@ class EventBroadcasterContextManager:
                         # Unsubscribe from internal events
                         logger.debug("Unsubscribing from ALL TOPICS")
                         await self._event_broadcaster._unsubscribe_from_topics()
+                        await self._event_broadcaster._release_sharing_broadcast_channel()
 
             except:
                 logger.exception("Failed to exit EventBroadcaster context")
@@ -141,7 +142,9 @@ class EventBroadcaster:
         self._broadcast_url = broadcast_url
         self._broadcast_type = broadcast_type or Broadcast
         # Publish broadcast (initialized within async with statement)
-        self._sharing_broadcast_channel = None
+        self._sharing_broadcast_channel: Broadcast = self._broadcast_type(
+            self._broadcast_url
+        )
         # channel to operate on
         self._channel = channel
         # Async-io task for reading broadcasts (initialized within async with statement)
@@ -151,7 +154,6 @@ class EventBroadcaster:
         # The internal events notifier
         self._notifier = notifier
         self._is_publish_only = is_publish_only
-        self._publish_lock = None
         # used to track creation / removal of resources needed per type (reader task->listen, and subscription to internal events->share)
         self._listen_count: int = 0
         self._share_count: int = 0
@@ -175,19 +177,18 @@ class EventBroadcaster:
         note = BroadcastNotification(
             notifier_id=self._id, topics=[subscription.topic], data=data
         )
-        # Publish event to broadcast
-        async with self._publish_lock:
-            async with self._sharing_broadcast_channel:
-                await self._sharing_broadcast_channel.publish(
-                    self._channel, note.json()
-                )
+        # Publish event to broadcast.
+        # if fails because underlying connection closed, we expect caller to exit an re-enter the EventBroadcaster
+        await self._sharing_broadcast_channel.publish(self._channel, note.json())
 
-    def _acquire_sharing_broadcast_channel(self):
+    async def _acquire_sharing_broadcast_channel(self):
         """
         Initialize the elements needed for sharing events with the broadcast channel
         """
-        self._publish_lock = asyncio.Lock()
-        self._sharing_broadcast_channel = self._broadcast_type(self._broadcast_url)
+        await self._sharing_broadcast_channel.connect()
+
+    async def _release_sharing_broadcast_channel(self):
+        await self._sharing_broadcast_channel.disconnect()
 
     async def _subscribe_to_all_topics(self):
         return await self._notifier.subscribe(
