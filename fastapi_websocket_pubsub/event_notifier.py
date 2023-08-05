@@ -129,7 +129,7 @@ class EventNotifier:
                 )
                 subscriptions.append(new_subscription)
                 new_subscriptions.append(new_subscription)
-                logger.info(f"New subscription {new_subscription.dict()}")
+                logger.debug(f"New subscription {new_subscription.dict()}")
             await EventNotifier.trigger_events(
                 self._on_subscribe_events, subscriber_id, topics
             )
@@ -153,7 +153,7 @@ class EventNotifier:
             for topic in topics:
                 subscribers = self._topics[topic]
                 if subscriber_id in subscribers:
-                    logger.info(
+                    logger.debug(
                         f"Removing Subscription of topic='{topic}' for subscriber={subscriber_id}"
                     )
                     del subscribers[subscriber_id]
@@ -208,12 +208,12 @@ class EventNotifier:
                                 if (subscription.topic == ALL_TOPICS)
                                 else subscription.topic
                             )
-                            logger.info(
+                            logger.debug(
                                 f"calling subscription callbacks: topic={topic} ({original_topic}), subscription_id={subscription.id}, subscriber_id={subscriber_id}"
                             )
                         else:
                             event = subscription
-                            logger.info(
+                            logger.debug(
                                 f"calling subscription callbacks: topic={topic}, subscription_id={subscription.id}, subscriber_id={subscriber_id}"
                             )
                         # call callback with subscription-info and provided data
