@@ -71,7 +71,6 @@ class EventBroadcasterContextManager:
                 if self._event_broadcaster._share_count == 1:
                     # We have our first publisher
                     # Init the broadcast used for sharing (reading has its own)
-                    self._event_broadcaster._acquire_sharing_broadcast_channel()
                     logger.debug(
                         "Subscribing to ALL_TOPICS, and sharing messages with broadcast channel"
                     )
@@ -175,19 +174,12 @@ class EventBroadcaster:
         note = BroadcastNotification(
             notifier_id=self._id, topics=[subscription.topic], data=data
         )
-        # Publish event to broadcast
-        async with self._publish_lock:
-            async with self._sharing_broadcast_channel:
-                await self._sharing_broadcast_channel.publish(
-                    self._channel, note.json()
-                )
 
-    def _acquire_sharing_broadcast_channel(self):
-        """
-        Initialize the elements needed for sharing events with the broadcast channel
-        """
-        self._publish_lock = asyncio.Lock()
-        self._sharing_broadcast_channel = self._broadcast_type(self._broadcast_url)
+        # Publish event to broadcast
+        async with self._broadcast_type(
+            self._broadcast_url
+        ) as sharing_broadcast_channel:
+            await sharing_broadcast_channel.publish(self._channel, note.json())
 
     async def _subscribe_to_all_topics(self):
         return await self._notifier.subscribe(
