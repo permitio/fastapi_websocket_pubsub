@@ -18,7 +18,7 @@ NotifierId = str
 class BroadcastNotification(BaseModel):
     notifier_id: NotifierId
     topics: TopicList
-    data: Any
+    data: Any = None
 
 
 class EventBroadcasterException(Exception):
