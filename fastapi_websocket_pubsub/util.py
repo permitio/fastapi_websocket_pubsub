@@ -14,8 +14,8 @@ def get_model_serializer():
         return lambda model: model.model_dump_json()
 
 
-def get_model_parser():
+def get_model_dict():
     if is_pydantic_pre_v2():
-        return lambda model, data: model.parse_obj(data)
+        return lambda model, **kwargs: model.dict(**kwargs)
     else:
-        return lambda model, data: model.model_validate(data)
+        return lambda model, **kwargs: model.model_dump(**kwargs)
