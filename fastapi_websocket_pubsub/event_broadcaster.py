@@ -1,12 +1,13 @@
 import asyncio
-from typing import Any, Union
-from pydantic.main import BaseModel
-from .event_notifier import EventNotifier, Subscription, TopicList, ALL_TOPICS
+from typing import Any
+
 from broadcaster import Broadcast
-
-from .logger import get_logger
 from fastapi_websocket_rpc.utils import gen_uid
+from pydantic.main import BaseModel
 
+from .event_notifier import ALL_TOPICS, EventNotifier, Subscription, TopicList
+from .logger import get_logger
+from .util import get_model_serializer
 
 logger = get_logger("EventBroadcaster")
 
