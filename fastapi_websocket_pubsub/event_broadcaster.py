@@ -180,7 +180,8 @@ class EventBroadcaster:
         async with self._broadcast_type(
             self._broadcast_url
         ) as sharing_broadcast_channel:
-            await sharing_broadcast_channel.publish(self._channel, note.json())
+            model_serializer = get_model_serializer()
+            await sharing_broadcast_channel.publish(self._channel, model_serializer(note))
 
     async def _subscribe_to_all_topics(self):
         return await self._notifier.subscribe(
