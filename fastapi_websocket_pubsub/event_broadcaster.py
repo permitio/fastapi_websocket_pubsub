@@ -181,7 +181,9 @@ class EventBroadcaster:
             self._broadcast_url
         ) as sharing_broadcast_channel:
             model_serializer = get_model_serializer()
-            await sharing_broadcast_channel.publish(self._channel, model_serializer(note))
+            await sharing_broadcast_channel.publish(
+                self._channel, model_serializer(note)
+            )
 
     async def _subscribe_to_all_topics(self):
         return await self._notifier.subscribe(
@@ -278,8 +280,10 @@ class EventBroadcaster:
                             )
 
                             self._tasks.add(task)
+
                             def cleanup(task):
                                 self._tasks.remove(task)
+
                             task.add_done_callback(cleanup)
                     except:
                         logger.exception("Failed handling incoming broadcast")
