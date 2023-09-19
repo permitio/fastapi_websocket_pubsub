@@ -7,7 +7,7 @@ from pydantic.main import BaseModel
 
 from .event_notifier import ALL_TOPICS, EventNotifier, Subscription, TopicList
 from .logger import get_logger
-from .util import get_model_serializer
+from .util import pydantic_serialize
 
 logger = get_logger("EventBroadcaster")
 
@@ -181,9 +181,8 @@ class EventBroadcaster:
         async with self._broadcast_type(
             self._broadcast_url
         ) as sharing_broadcast_channel:
-            model_serializer = get_model_serializer()
             await sharing_broadcast_channel.publish(
-                self._channel, model_serializer(note)
+                self._channel, pydantic_serialize(note)
             )
 
     async def _subscribe_to_all_topics(self):

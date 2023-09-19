@@ -7,7 +7,7 @@ from fastapi_websocket_rpc.utils import gen_uid
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
 from .logger import get_logger
-from .util import get_model_dict
+from .util import pydantic_to_dict
 
 logger = get_logger("EventNotifier")
 
@@ -130,8 +130,7 @@ class EventNotifier:
                 )
                 subscriptions.append(new_subscription)
                 new_subscriptions.append(new_subscription)
-                model_dict = get_model_dict()
-                logger.debug(f"New subscription {model_dict(new_subscription)}")
+                logger.debug(f"New subscription {pydantic_to_dict(new_subscription)}")
             await EventNotifier.trigger_events(
                 self._on_subscribe_events, subscriber_id, topics
             )
