@@ -7,15 +7,15 @@ def is_pydantic_pre_v2():
     return version.parse(pydantic.VERSION) < version.parse("2.0.0")
 
 
-def get_model_serializer():
+def pydantic_serialize(model, **kwargs):
     if is_pydantic_pre_v2():
-        return lambda model, **kwargs: model.json(**kwargs)
+        return model.json(**kwargs)
     else:
-        return lambda model, **kwargs: model.model_dump_json(**kwargs)
+        return model.model_dump_json(**kwargs)
 
 
-def get_model_dict():
+def pydantic_to_dict(model, **kwargs):
     if is_pydantic_pre_v2():
-        return lambda model, **kwargs: model.dict(**kwargs)
+        return model.dict(**kwargs)
     else:
-        return lambda model, **kwargs: model.model_dump(**kwargs)
+        return model.model_dump(**kwargs)
