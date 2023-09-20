@@ -1,7 +1,10 @@
 import asyncio
+
 from fastapi_websocket_rpc import RpcMethodsBase
+
 from .event_notifier import EventNotifier, Subscription, TopicList
 from .logger import get_logger
+from .util import pydantic_to_dict
 
 
 class RpcEventServerMethods(RpcMethodsBase):
@@ -22,7 +25,9 @@ class RpcEventServerMethods(RpcMethodsBase):
             async def callback(subscription: Subscription, data):
                 # remove the actual function
                 sub = subscription.copy(exclude={"callback"})
-                self.logger.info(f"Notifying other side: subscription={subscription.dict(exclude={'callback'})}, data={data}, channel_id={self.channel.id}")
+                self.logger.info(
+                    f"Notifying other side: subscription={pydantic_to_dict(subscription, exclude={'callback'})}, data={data}, channel_id={self.channel.id}"
+                )
                 await self.channel.other.notify(subscription=sub, data=data)
 
             if self._rpc_channel_get_remote_id:
