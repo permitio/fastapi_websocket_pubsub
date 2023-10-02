@@ -1,12 +1,13 @@
 import asyncio
-from typing import Any, Union
-from pydantic.main import BaseModel
-from .event_notifier import EventNotifier, Subscription, TopicList, ALL_TOPICS
+from typing import Any
+
 from broadcaster import Broadcast
-
-from .logger import get_logger
 from fastapi_websocket_rpc.utils import gen_uid
+from pydantic.main import BaseModel
 
+from .event_notifier import ALL_TOPICS, EventNotifier, Subscription, TopicList
+from .logger import get_logger
+from .util import pydantic_serialize
 
 logger = get_logger("EventBroadcaster")
 
@@ -157,6 +158,7 @@ class EventBroadcaster:
         # If we opt to manage the context directly (i.e. call async with on the event broadcaster itself)
         self._context_manager = None
         self._context_manager_lock = asyncio.Lock()
+        self._tasks = set()
 
     async def __broadcast_notifications__(self, subscription: Subscription, data):
         """
@@ -179,7 +181,9 @@ class EventBroadcaster:
         async with self._broadcast_type(
             self._broadcast_url
         ) as sharing_broadcast_channel:
-            await sharing_broadcast_channel.publish(self._channel, note.json())
+            await sharing_broadcast_channel.publish(
+                self._channel, pydantic_serialize(note)
+            )
 
     async def _subscribe_to_all_topics(self):
         return await self._notifier.subscribe(
@@ -267,11 +271,20 @@ class EventBroadcaster:
                                 )
                             )
                             # Notify subscribers of message received from broadcast
-                            await self._notifier.notify(
-                                notification.topics,
-                                notification.data,
-                                notifier_id=self._id,
+                            task = asyncio.create_task(
+                                self._notifier.notify(
+                                    notification.topics,
+                                    notification.data,
+                                    notifier_id=self._id,
+                                )
                             )
+
+                            self._tasks.add(task)
+
+                            def cleanup(task):
+                                self._tasks.remove(task)
+
+                            task.add_done_callback(cleanup)
                     except:
                         logger.exception("Failed handling incoming broadcast")
                 logger.info(
