@@ -4,7 +4,7 @@ from typing import Any, Callable, Coroutine, Dict, List, Optional, Union
 
 from fastapi_websocket_rpc import RpcChannel
 from fastapi_websocket_rpc.utils import gen_uid
-from pydantic import BaseModel  # pylint: disable=no-name-in-module
+from pydantic.v1 import BaseModel  # pylint: disable=no-name-in-module
 
 from .logger import get_logger
 from .util import pydantic_to_dict

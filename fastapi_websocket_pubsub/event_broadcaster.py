@@ -3,7 +3,7 @@ from typing import Any
 
 from broadcaster import Broadcast
 from fastapi_websocket_rpc.utils import gen_uid
-from pydantic.main import BaseModel
+from pydantic.v1.main import BaseModel
 
 from .event_notifier import ALL_TOPICS, EventNotifier, Subscription, TopicList
 from .logger import get_logger
