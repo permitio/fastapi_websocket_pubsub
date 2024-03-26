@@ -255,7 +255,10 @@ class EventNotifier:
         # TODO improve with reader/writer lock pattern - so multiple notifications can happen at once
         async with self._get_subscribers_lock():
             for topic in topics:
+                # TODO: Multiple topics can have the same subscriber - we should first aggregate the entire list of subscribers for all topics,
+                #       and only then create the `callbacks` list so each subscriber is called only once (to avoid duplicated updates)
                 subscribers = self._topics.get(topic, {})
+
                 # handle direct topic subscribers (work on copy to avoid changes after we got the callbacks running)
                 callbacks.append(
                     self.callback_subscribers(
