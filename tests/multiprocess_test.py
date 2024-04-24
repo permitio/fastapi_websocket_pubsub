@@ -3,6 +3,7 @@ Pattern:
         Publishing-Client -> PubSubServer -> Subscribing->Client
 
 """
+
 import os
 import sys
 import pytest
@@ -10,7 +11,7 @@ import uvicorn
 import asyncio
 from multiprocessing import Process, Event as ProcEvent
 
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 
 from fastapi_websocket_rpc.logger import get_logger
 
@@ -35,11 +36,9 @@ CLIENT_START_SYNC = ProcEvent()
 
 def setup_server():
     app = FastAPI()
-    router = APIRouter()
     # PubSub websocket endpoint
     endpoint = PubSubEndpoint()
-    endpoint.register_route(router, path="/pubsub")
-    app.include_router(router)
+    endpoint.register_route(app, path="/pubsub")
     uvicorn.run(app, port=PORT)
 
 
@@ -51,6 +50,7 @@ def setup_publishing_client():
     async def actual():
         # Wait for other client to wake up before publishing to it
         CLIENT_START_SYNC.wait(5)
+        logger.info("Client start sync done")
         # Create a client and subscribe to topics
         client = PubSubClient()
         client.start_client(uri)
@@ -62,7 +62,7 @@ def setup_publishing_client():
         assert published.result
 
     logger.info("Starting async publishing client")
-    asyncio.get_event_loop().run_until_complete(actual())
+    asyncio.run(actual())
 
 
 @pytest.fixture(scope="module")
