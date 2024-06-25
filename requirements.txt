@@ -3,3 +3,4 @@ packaging>=20.4
 permit-broadcaster[redis,postgres,kafka]>=0.2.5,<3
 pydantic>=1.9.1
 websockets>=10.3
+anyio>=4.4.0 # not directly required, pinned by Snyk to avoid a vulnerability
