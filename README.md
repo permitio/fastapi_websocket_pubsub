@@ -7,7 +7,7 @@
 # ⚡🗞️ FastAPI Websocket Pub/Sub 
 
 <a href="https://github.com/permitio/fastapi_websocket_pubsub/actions?query=workflow%3ATests" target="_blank">
-    <img src="https://github.com/permitio/fastapi_websocket_pubsub/workflows/Tests/badge.svg" alt="Tests">
+    <img src="https://github.com/permitio/fastapi_websocket_pubsub/workflows/Tests/badge.svg?branch=master" alt="Tests">
 </a>
 
 <a href="https://pypi.org/project/fastapi-websocket-pubsub/" target="_blank">
