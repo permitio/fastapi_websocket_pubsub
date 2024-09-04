@@ -34,7 +34,7 @@ class PubSubEndpoint:
         on_connect: List[Coroutine] = None,
         on_disconnect: List[Coroutine] = None,
         rpc_channel_get_remote_id: bool = False,
-        ignore_broadcaster_disconnected = True,
+        ignore_broadcaster_disconnected: bool = True,
     ):
         """
         The PubSub endpoint recives subscriptions from clients and publishes data back to them upon receiving relevant publications.
@@ -104,7 +104,7 @@ class PubSubEndpoint:
         logger.debug(f"Publishing message to topics: {topics}")
         if self.broadcaster is not None:
             logger.debug(f"Acquiring broadcaster sharing context")
-            async with self.broadcaster.get_context(listen=False, share=True):
+            async with self.broadcaster.get_sharing_context():
                 await self.notifier.notify(topics, data, notifier_id=self._id)
         # otherwise just notify
         else:
@@ -132,14 +132,19 @@ class PubSubEndpoint:
             async with self.broadcaster:
                 logger.debug("Entering endpoint's main loop with broadcaster")
                 if self._ignore_broadcaster_disconnected:
-                    await self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
+                    await self.endpoint.main_loop(
+                        websocket, client_id=client_id, **kwargs
+                    )
                 else:
                     main_loop_task = asyncio.create_task(
-                        self.endpoint.main_loop(websocket, client_id=client_id, **kwargs)
+                        self.endpoint.main_loop(
+                            websocket, client_id=client_id, **kwargs
+                        )
                     )
-                    done, pending = await asyncio.wait([main_loop_task,
-                                                        self.broadcaster.get_reader_task()],
-                                                        return_when=asyncio.FIRST_COMPLETED)
+                    done, pending = await asyncio.wait(
+                        [main_loop_task, self.broadcaster.get_reader_task()],
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
                     logger.debug(f"task is done: {done}")
                     # broadcaster's reader task is used by other endpoints and shouldn't be cancelled
                     if main_loop_task in pending:
