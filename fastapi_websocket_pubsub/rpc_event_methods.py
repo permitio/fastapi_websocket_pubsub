@@ -25,7 +25,7 @@ class RpcEventServerMethods(RpcMethodsBase):
             async def callback(subscription: Subscription, data):
                 # remove the actual function
                 sub = subscription.copy(exclude={"callback"})
-                self.logger.info(
+                self.logger.debug(
                     f"Notifying other side: subscription={pydantic_to_dict(subscription, exclude={'callback'})}, data={data}, channel_id={self.channel.id}"
                 )
                 await self.channel.other.notify(subscription=sub, data=data)
@@ -89,6 +89,6 @@ class RpcEventClientMethods(RpcMethodsBase):
         self.logger = get_logger('PubSubClient')
 
     async def notify(self, subscription=None, data=None):
-        self.logger.info("Received notification of event",
-                         {'subscription': subscription, 'data': data})
+        self.logger.debug("Received notification of event",
+                          {'subscription': subscription, 'data': data})
         await self.client.trigger_topic(topic=subscription["topic"], data=data)
