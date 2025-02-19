@@ -28,6 +28,6 @@ setup(
         "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
         "Topic :: Internet :: WWW/HTTP :: WSGI",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=get_requirements(),
 )
