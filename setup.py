@@ -30,4 +30,10 @@ setup(
     ],
     python_requires=">=3.9",
     install_requires=get_requirements(),
+    extras_require = {
+        "redis": ["permit-broadcaster[redis]>=0.2.5,<3"],
+        "postgres": ["permit-broadcaster[postgres]>=0.2.5,<3"],
+        "kafka": ["permit-broadcaster[kafka]>=0.2.5,<3"],
+        "all": ["permit-broadcaster[redis,postgres,kafka]>=0.2.5,<3"],
+    }
 )
