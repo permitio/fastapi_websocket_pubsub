@@ -6,3 +6,4 @@ wheel
 loguru
 uvicorn
 pytest-timeout
+permit-broadcaster[redis,postgres,kafka]>=0.2.5,<3

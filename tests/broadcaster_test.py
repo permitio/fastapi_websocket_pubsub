@@ -22,6 +22,12 @@ sys.path.append(
 )
 from fastapi_websocket_pubsub import PubSubEndpoint, PubSubClient
 
+# Check if postgres backend is available
+asyncpg_backend_available = True
+try:
+    import asyncpg
+except ModuleNotFoundError:
+    asyncpg_backend_available = False
 
 logger = get_logger("Test")
 logger.remove()
@@ -129,6 +135,7 @@ def server(postgres):
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(not asyncpg_backend_available, reason="asyncpg dependency is not installed.")
 async def test_all_clients_get_a_topic_via_broadcast(server, repeats=1, interval=0):
     """
     if:
@@ -179,6 +186,7 @@ async def test_all_clients_get_a_topic_via_broadcast(server, repeats=1, interval
 
 @pytest.mark.postgres_idle_timeout(3000)
 @pytest.mark.asyncio
+@pytest.mark.skipif(not asyncpg_backend_available, reason="asyncpg dependency is not installed.")
 async def test_idle_pg_broadcaster_disconnect(server):
     """
     if:
