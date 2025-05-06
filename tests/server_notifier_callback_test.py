@@ -80,7 +80,7 @@ async def server_subscribe_to_topic(server, is_topic_permitted):
 
     # Create a client and subscribe to topics
     async with PubSubClient(
-        extra_headers={"headers": {"claims": {"permitted_topics": permitted_topics}}}
+        additional_headers={"headers": {"claims": {"permitted_topics": permitted_topics}}}
     ) as client:
 
         async def on_event(data, topic):
@@ -116,7 +116,7 @@ async def test_server_subscribe_to_permitted_topic(server):
 async def server_publish_to_topic(server, is_topic_permitted):
     # Create a client and subscribe to topics
     async with PubSubClient(
-        extra_headers={"headers": {"claims": {"permitted_topics": ["t1", "t2"]}}}
+        additional_headers={"headers": {"claims": {"permitted_topics": ["t1", "t2"]}}}
     ) as client:
         # start listentining
         client.start_client(uri)
