@@ -1,5 +1,5 @@
 fastapi-websocket-rpc>=0.1.25,<1
 packaging>=20.4
 pydantic>=1.9.1
-websockets>=10.3
+websockets>=14.0
 permit-broadcaster>=0.2.5,<3
