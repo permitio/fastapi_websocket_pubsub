@@ -71,7 +71,8 @@ FastAPI + WebSockets + PubSub ==  ⚡💪 ❤️
         async def websocket_rpc_endpoint(websocket: WebSocket):
             await endpoint.main_loop(websocket)
         ```
-        see [examples/pubsub_broadcaster_server_example.py](examples/pubsub_broadcaster_server_example.py) for full usage example 
+        see [examples/pubsub_broadcaster_server_example.py](examples/pubsub_broadcaster_server_example.py) for full usage example
+        Note: Requires install with dependencies e.g. `pip install fastapi_websocket_pubsub[redis]`, `pip install fastapi_websocket_pubsub[postgres]`, `pip install fastapi_websocket_pubsub[kafka]` or `pip install fastapi_websocket_pubsub[all]` to get support for all three backends
 
 
 
