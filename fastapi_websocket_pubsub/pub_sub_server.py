@@ -91,6 +91,10 @@ class PubSubEndpoint:
     ) -> List[Subscription]:
         return await self.notifier.subscribe(self._subscriber_id, topics, callback)
 
+    async def unsubscribe(
+        self, topics: Union[TopicList, ALL_TOPICS]) -> List[Subscription]:
+        return await self.notifier.unsubscribe(self._subscriber_id, topics)
+
     async def publish(self, topics: Union[TopicList, Topic], data=None):
         """
         Publish events to subscribres of given topics currently connected to the endpoint
