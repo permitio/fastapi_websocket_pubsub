@@ -251,7 +251,7 @@ class PubSubClient:
 
     def subscribe(self, topic: Topic, callback: Coroutine):
         """
-        Subscribe for events (prior to starting the client)
+        Subscribe for events (before and after starting the client)
         @see fastapi_websocket_pubsub/rpc_event_methods.py :: RpcEventServerMethods.subscribe
 
         Args:
@@ -260,18 +260,25 @@ class PubSubClient:
                            'hello' or a complex path 'a/b/c/d' .
                            Note: You can use ALL_TOPICS (event_notifier.ALL_TOPICS) to subscribe to all topics
             callback (Coroutine): the function to call upon relevant event publishing
+
+        Returns:
+            Coroutine: awaitable task to subscribe to topic if connected.
         """
-        # TODO: add support for post connection subscriptions
-        if not self.is_ready():
-            self._topics.add(topic)
-            # init to empty list if no entry
-            callbacks = self._callbacks[topic] = self._callbacks.get(topic, [])
-            # add callback to callbacks list of the topic
-            callbacks.append(callback)
+        topic_is_new = topic not in self._topics
+        self._topics.add(topic)
+        # init to empty list if no entry
+        callbacks = self._callbacks[topic] = self._callbacks.get(topic, [])
+        # add callback to callbacks list of the topic
+        callbacks.append(callback)
+        if topic_is_new and self.is_ready():
+            return self._rpc_channel.other.subscribe(topics=[topic])
         else:
-            raise PubSubClientInvalidStateException(
-                "Client already connected and subscribed"
-            )
+            # If we can't return an RPC call future then we need
+            # to supply something else to not fail when the
+            # calling code awaits the result of this function.
+            future = asyncio.Future()
+            future.set_result(None)
+            return future
 
     async def publish(
         self, topics: TopicList, data=None, sync=True, notifier_id=None
