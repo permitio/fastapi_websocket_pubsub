@@ -49,6 +49,19 @@ class RpcEventServerMethods(RpcMethodsBase):
                 "Failed to subscribe to RPC events notifier", topics)
             return False
 
+    async def unsubscribe(self, topics: TopicList = []) -> bool:
+        """
+        provided by the server so that the client can unsubscribe topics.
+        """
+        for topic in topics.copy():
+            if topic not in self.event_notifier._topics:
+                self.logger.warning(f"Cannot unsubscribe topic '{topic}' which is not subscribed.")
+                topics.remove(topic)
+        # We'll use the remote channel id as our subscriber id
+        sub_id = await self._get_channel_id_()
+        await self.event_notifier.unsubscribe(sub_id, topics)
+        return True
+
     async def publish(self, topics: TopicList = [], data=None, sync=True, notifier_id=None) -> bool:
         """
         Publish an event through the server to subscribers

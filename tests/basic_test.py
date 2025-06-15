@@ -133,3 +133,47 @@ async def test_pub_sub_with_all_topics(server):
         assert published.result
         # wait for finish trigger
         await asyncio.wait_for(finish.wait(), 5)
+
+
+@pytest.mark.asyncio
+async def test_pub_sub_unsub(server):
+    """
+    Check client can unsubscribe topic and subscribe again.
+    """
+    # finish trigger
+    finish = asyncio.Event()
+    async with PubSubClient() as client:
+
+        async def on_event(data, topic):
+            assert data == DATA
+            finish.set()
+
+        # subscribe for the event
+        client.subscribe(EVENT_TOPIC, on_event)
+        # start listentining
+        client.start_client(uri)
+        # wait for the client to be ready to receive events
+        await client.wait_until_ready()
+        # trigger the server via an HTTP route
+        requests.get(trigger_url)
+        # wait for finish trigger
+        await asyncio.wait_for(finish.wait(), 5)
+        assert finish.is_set()
+        
+        # unsubscribe and see that we don't get a message
+        finish.clear()
+        await client.unsubscribe(EVENT_TOPIC)
+        requests.get(trigger_url)
+        # wait for finish trigger which isn't coming
+        with pytest.raises(asyncio.TimeoutError) as excinfo:
+            await asyncio.wait_for(finish.wait(), 5)
+        assert not finish.is_set()
+        
+        # subscribe again and observe that we get the trigger
+        finish.clear()
+        await client.subscribe(EVENT_TOPIC, on_event)
+        # trigger the server via an HTTP route
+        requests.get(trigger_url)
+        # wait for finish trigger
+        await asyncio.wait_for(finish.wait(), 5)
+        assert finish.is_set()
