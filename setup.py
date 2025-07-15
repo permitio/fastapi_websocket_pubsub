@@ -1,11 +1,23 @@
 from setuptools import setup, find_packages
+import os
 
 
 def get_requirements(env=""):
     if env:
         env = "-{}".format(env)
-    with open("requirements{}.txt".format(env)) as fp:
-        return [x.strip() for x in fp.read().split("\n") if not x.startswith("#")]
+    req_file = "requirements{}.txt".format(env)
+    if os.path.exists(req_file):
+        with open(req_file) as fp:
+            return [x.strip() for x in fp.read().split("\n") if not x.startswith("#")]
+    else:
+        # Fallback requirements if file not found
+        return [
+            "fastapi-websocket-rpc>=0.1.25,<1",
+            "packaging>=20.4",
+            "pydantic>=1.9.1",
+            "websockets>=14.0",
+            "permit-broadcaster>=0.2.5,<1",
+        ]
 
 
 with open("README.md", "r", encoding="utf-8") as fh:
@@ -13,7 +25,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="fastapi_websocket_pubsub",
-    version="0.3.9",
+    version="1.0.2",
     author="Or Weis",
     author_email="or@permit.io",
     description="A fast and durable PubSub channel over Websockets (using fastapi-websockets-rpc).",

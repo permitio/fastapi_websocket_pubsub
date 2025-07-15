@@ -1,0 +1,85 @@
+name: Packaging Guard
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-package:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+    
+    - name: Build package
+      run: python -m build
+    
+    - name: Check package with twine
+      run: twine check dist/*
+    
+    - name: Test package installation with all extras
+      run: |
+        python -m venv test_env
+        source test_env/bin/activate
+        pip install --upgrade pip
+        pip install dist/*.whl[all]
+        python -c "import fastapi_websocket_pubsub; print('Package installed successfully')"
+    
+    - name: Verify no bogus dependencies in wheel metadata
+      run: |
+        python -m venv check_env
+        source check_env/bin/activate
+        pip install --upgrade pip
+        pip install wheel
+        
+        # Extract wheel metadata and check for problematic dependencies
+        python -c "
+        import zipfile
+        import os
+        import glob
+        
+        wheel_file = glob.glob('dist/*.whl')[0]
+        with zipfile.ZipFile(wheel_file, 'r') as zf:
+            # Find the METADATA file
+            metadata_file = None
+            for filename in zf.namelist():
+                if filename.endswith('METADATA'):
+                    metadata_file = filename
+                    break
+            
+            if metadata_file:
+                with zf.open(metadata_file) as f:
+                    metadata_content = f.read().decode('utf-8')
+                    print('Checking wheel metadata for problematic dependencies...')
+                    
+                    # Check for the problematic dependency
+                    if 'tls-cert-refresh-period' in metadata_content:
+                        print('ERROR: Found problematic dependency: tls-cert-refresh-period')
+                        exit(1)
+                    
+                    print('✓ No problematic dependencies found')
+                    
+                    # Print dependencies for debugging
+                    print('Dependencies found:')
+                    for line in metadata_content.split('\n'):
+                        if line.startswith('Requires-Dist:'):
+                            print(f'  {line}')
+            else:
+                print('ERROR: No METADATA file found in wheel')
+                exit(1)
+        "
