@@ -9,6 +9,11 @@ from .event_notifier import ALL_TOPICS, EventNotifier, Subscription, TopicList
 from .logger import get_logger
 from .util import pydantic_serialize
 
+try:
+    from importlib.metadata import version as get_version
+except ImportError:
+    from importlib_metadata import version as get_version
+
 logger = get_logger("EventBroadcaster")
 
 
@@ -246,6 +251,8 @@ class EventBroadcaster:
                     self._broadcast_url
                 )
                 await self.listening_broadcast_channel.connect()
+                # Add driver info for Redis connections
+                self._add_driver_info_to_broadcast(self.listening_broadcast_channel)
         except Exception as e:
             logger.error(
                 f"Failed to connect to broadcast channel for reading incoming events: {e}"
@@ -306,4 +313,70 @@ class EventBroadcaster:
         finally:
             if self.listening_broadcast_channel is not None:
                 await self.listening_broadcast_channel.disconnect()
-                self.listening_broadcast_channel = None
+
+    def _add_driver_info_to_broadcast(self, broadcast_channel: Broadcast) -> None:
+        """Add driver identification to Redis connection.
+
+        Uses DriverInfo class if available, or falls back to
+        lib_name/lib_version for older versions.
+
+        Args:
+            broadcast_channel: The Broadcast instance to add driver info to
+        """
+        # Get fastapi-websocket-pubsub version
+        try:
+            pubsub_version = get_version("fastapi-websocket-pubsub")
+        except Exception:
+            pubsub_version = "unknown"
+
+        # Get the Redis client from the backend
+        redis_client = self._get_redis_client_from_broadcast(broadcast_channel)
+        if redis_client is None:
+            return
+
+        # Get connection pool from the redis client
+        connection_pool: Any = getattr(redis_client, "connection_pool", None)
+        if connection_pool is None:
+            return
+
+        # Try to use DriverInfo class
+        try:
+            from redis import DriverInfo
+
+            driver_info = DriverInfo().add_upstream_driver(
+                "fastapi-websocket-pubsub", pubsub_version
+            )
+            connection_pool.connection_kwargs["driver_info"] = driver_info
+        except (ImportError, AttributeError):
+            # Fallback: use lib_name/lib_version
+            # Format: lib_name='redis-py(fastapi-websocket-pubsub_v{version})'
+            connection_pool.connection_kwargs["lib_name"] = (
+                f"redis-py(fastapi-websocket-pubsub_v{pubsub_version})"
+            )
+            # lib_version should be the redis client version
+            try:
+                import redis
+
+                redis_version = redis.__version__
+            except (ImportError, AttributeError):
+                redis_version = "unknown"
+            connection_pool.connection_kwargs["lib_version"] = redis_version
+
+    def _get_redis_client_from_broadcast(self, broadcast_channel: Broadcast) -> Any:
+        """Extract the Redis client from the broadcaster backend.
+
+        Args:
+            broadcast_channel: The Broadcast instance
+
+        Returns:
+            The Redis client instance or None if not available.
+        """
+        try:
+            backend = broadcast_channel._backend
+            # Check if it's a Redis backend by class name
+            if "Redis" not in type(backend).__name__:
+                return None
+            # Try _conn (current broadcaster) or _pub_conn (older versions)
+            return getattr(backend, "_conn", None) or getattr(backend, "_pub_conn", None)
+        except Exception:
+            return None
