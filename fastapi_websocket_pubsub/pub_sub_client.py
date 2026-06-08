@@ -201,12 +201,32 @@ class PubSubClient:
                         if wait_on_reader:
                             # Wait on the internal RPC task or until we ar asked to terminate - keeping the client alive meanwhile
                             # Waiting on the reader tasks allows us to receive exceptions raised on the websocket layer- indicating a need to reset the connection
-                            wait_on_reader_task = client.wait_on_reader()
-                            for task in asyncio.as_completed(
-                                [wait_on_reader_task, self._disconnect_signal.wait()]
-                            ):
-                                await task
-                                break
+                            wait_on_reader_task = asyncio.ensure_future(
+                                client.wait_on_reader()
+                            )
+                            disconnect_wait_task = asyncio.ensure_future(
+                                self._disconnect_signal.wait()
+                            )
+                            done, pending = await asyncio.wait(
+                                [wait_on_reader_task, disconnect_wait_task],
+                                return_when=asyncio.FIRST_COMPLETED,
+                            )
+                            # Cancel the future that did not complete so it is not
+                            # left pending across reconnects. The previous
+                            # asyncio.as_completed loop broke out without cancelling
+                            # the other future, leaking one task (and the
+                            # as_completed machinery) on every reconnect.
+                            for pending_task in pending:
+                                pending_task.cancel()
+                                try:
+                                    await pending_task
+                                except (asyncio.CancelledError, Exception):
+                                    pass
+                            # Surface any exception raised by the reader task (e.g. a
+                            # websocket-layer error indicating we must reset the
+                            # connection), preserving the previous behaviour.
+                            if wait_on_reader_task in done:
+                                await wait_on_reader_task
                             if not self._disconnect_signal.is_set():
                                 logger.info(f"Connection gracefully closed by server -- Trying to reconnect.")
                     except websockets.exceptions.WebSocketException as err:
